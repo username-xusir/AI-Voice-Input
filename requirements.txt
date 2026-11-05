@@ -1,0 +1,15 @@
+faster-whisper==1.2.1
+ctranslate2==4.8.5
+av==19.0.2
+onnxruntime==1.31.1
+tokenizers==0.22.2
+huggingface-hub==1.33.0
+numpy==2.5.4
+sounddevice==0.5.6
+PySide6-Essentials==6.12.0
+soxr==1.1.0
+openvino==2026.4.1
+openvino-genai==2026.4.1.0
+openvino-tokenizers==2026.4.1.0
+openvino-telemetry==2025.2.0
+opencc-python-reimplemented==0.1.7
