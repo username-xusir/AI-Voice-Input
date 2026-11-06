@@ -1,0 +1,69 @@
+name: Republish Voxa installer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  republish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download and reconstruct the installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir installer
+          gh release download v0.7.2 \
+            --repo username-xusir/AI-Voice-Input \
+            --dir installer \
+            --pattern 'Voxa-Setup-0.7.2.exe.???'
+          python3 - <<'PY'
+          from hashlib import sha256
+          from pathlib import Path
+
+          expected_size = 702908156
+          expected_hash = "386a169b1f808a86e5fd741ea1c36cc2e656f5159dd4809fa3b49235ddbb502a"
+          parts = sorted(Path("installer").glob("Voxa-Setup-0.7.2.exe.[0-9][0-9][0-9]"))
+          expected_names = [f"Voxa-Setup-0.7.2.exe.{i:03d}" for i in range(1, 69)]
+          if [part.name for part in parts] != expected_names:
+              raise SystemExit(f"Expected all 68 parts; found {len(parts)}.")
+
+          installer = Path("installer/Voxa-Setup-0.7.2.exe")
+          with installer.open("wb") as output:
+              for part in parts:
+                  with part.open("rb") as source:
+                      while chunk := source.read(1024 * 1024):
+                          output.write(chunk)
+
+          digest = sha256(installer.read_bytes()).hexdigest()
+          if installer.stat().st_size != expected_size or digest != expected_hash:
+              raise SystemExit(f"Installer verification failed: size={installer.stat().st_size}, sha256={digest}")
+          print(f"Verified installer: {installer.stat().st_size} bytes, sha256={digest}")
+          PY
+
+      - name: Upload the single installer and verify it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v0.7.2 installer/Voxa-Setup-0.7.2.exe \
+            --repo username-xusir/AI-Voice-Input
+          size="$(gh release view v0.7.2 --repo username-xusir/AI-Voice-Input --json assets \
+            --jq '.assets[] | select(.name == "Voxa-Setup-0.7.2.exe") | .size')"
+          test "$size" = "702908156"
+
+      - name: Remove confusing parts and update release instructions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="$(gh release view v0.7.2 --repo username-xusir/AI-Voice-Input --json body --jq .body)"
+          printf '%s\n' "$body" | sed '/安装包较大，Release 提供/d' > installer/release-notes.md
+          gh release edit v0.7.2 --repo username-xusir/AI-Voice-Input \
+            --notes-file installer/release-notes.md
+
+          ids="$(gh release view v0.7.2 --repo username-xusir/AI-Voice-Input --json assets \
+            --jq '.assets[] | select((.name | test("^Voxa-Setup-0\\.7\\.2\\.exe\\.[0-9]{3}$")) or .name == "restore-installer.bat" or .name == "restore-installer.ps1") | .id')"
+          for id in $ids; do
+            gh api -X DELETE "repos/username-xusir/AI-Voice-Input/releases/assets/$id"
+          done
