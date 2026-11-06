@@ -8,7 +8,6 @@ Windows 11 本地语音输入，接管 Win+H。完全离线，音频不上传。
 
 SHA256：`386a169b1f808a86e5fd741ea1c36cc2e656f5159dd4809fa3b49235ddbb502a`
 
-安装包较大，Release 提供 `.001` 至 `.068` 共 68 个分卷。下载全部分卷和 `restore-installer.bat`（或 `restore-installer.ps1`）到同一文件夹，再运行脚本合并并验证 SHA256。
 
 安装包未做代码签名，Windows SmartScreen 可能提示“未知发布者”，选择“更多信息 → 仍要运行”。
 
