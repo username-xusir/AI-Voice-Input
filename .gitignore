@@ -20,3 +20,4 @@ tests/*.png
 .venv
 tools/nsis
 models/
+docs/*.png

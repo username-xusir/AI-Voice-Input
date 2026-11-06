@@ -1,4 +1,4 @@
-# 构建与发布 — Voxa 0.7.1
+# 构建与发布 — Voxa 0.7.2
 
 ## 依赖
 
@@ -45,7 +45,7 @@ dist\models-large\whisper-large-v3-turbo-int4-ov\
 tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 ```
 
-产物：`release\Voxa-Setup-0.7.1.exe`。
+产物：`release\Voxa-Setup-0.7.2.exe`。
 
 安装包特性：
 
@@ -61,15 +61,15 @@ tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 1. 在临时目录静默安装：
 
    ```bat
-   release\Voxa-Setup-0.7.1.exe /S /D=C:\temp\VoxaTest
+   release\Voxa-Setup-0.7.2.exe /S /D=C:\temp\VoxaTest
    ```
 
 2. 启动 `C:\temp\VoxaTest\Voxa.exe`，等托盘就绪。
-3. 按 Win+H 说一句话，停止说话约 1.8 秒，确认自动输入并关闭。
+3. 按 Win+H 说一句话，停止说话约 1.8 秒，确认自动输入且浮窗保持打开；点 × 才关闭。
 4. 录音时确认浮窗麦克风变成动态声波。
-5. 托盘左键 → 设置：切换浅色/深色、自动标点、静音时长，确认即时生效。
+5. 浮窗“设置”打开快速设置；托盘左键打开详细设置，确认两者不同且不弹语音浮窗。
 6. 设置里切换 CPU/GPU，确认状态提示并在加载完成后可继续识别。
-7. 再次双击 `Voxa.exe`，确认已有实例打开设置。
+7. 再次双击 `Voxa.exe`，确认已有实例只打开详细设置，不弹出语音浮窗。
 8. 检查 `%LOCALAPPDATA%\Voxa\logs\app.log`。
 9. 运行 `C:\temp\VoxaTest\Uninstall.exe /S`，确认程序/模型/快捷方式/自启动被清理。
 
@@ -77,7 +77,7 @@ tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 
 上传：
 
-- `release\Voxa-Setup-0.7.1.exe`
+- `release\Voxa-Setup-0.7.2.exe`
 - `release\SHA256SUMS.txt`
 - `release\RELEASE_NOTES.md`
 
@@ -86,5 +86,5 @@ tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 - 版本、Windows 11、CPU 要求。
 - 安装包默认包含基础模型与 large 高精度模型；large 可取消。
 - Win+H 接管说明。
-- 0.7.1 更名、设置卡片、三主题、声波麦克风、自动标点、CPU/GPU 切换。
+- 0.7.2 浮窗常驻结果、快速/详细设置分离、桌面入口不弹语音浮窗。
 - 已知限制：高精度慢、实时输入依赖光标、Iris Xe GPU 更慢。

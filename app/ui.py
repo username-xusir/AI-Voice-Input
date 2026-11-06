@@ -162,7 +162,7 @@ PALETTES = {
 
 THEME = dict(PALETTES["teal"])
 THEME_NAME = "teal"
-VOXA_VERSION = "0.7.1"
+VOXA_VERSION = "0.7.2"
 
 MARGIN = 4
 PILL_MARGIN_X = 6
@@ -583,6 +583,8 @@ class PillWindow(QWidget):
             self.mic.set_mode("paused")
         elif state in ("loading", "finishing"):
             self.mic.set_mode("loading")
+        elif state == "ready":
+            self.mic.set_mode("idle")
         else:
             self.mic.set_mode("disabled")
         self._refresh_text()
@@ -1149,6 +1151,18 @@ class SettingsPanel(QWidget):
         self.show()
         self.raise_()
 
+    def show_centered(self) -> None:
+        screen = QGuiApplication.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            self.move(
+                geo.center().x() - self.width() // 2,
+                geo.center().y() - self.height() // 2,
+            )
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
     def mousePressEvent(self, event) -> None:  # noqa: N802
         if event.button() == Qt.LeftButton:
             child = self.childAt(event.position().toPoint())
@@ -1230,7 +1244,7 @@ class TrayIcon(QSystemTrayIcon):
             show_action = menu.addAction("显示浮窗")
             show_action.triggered.connect(on_show)
         if on_settings:
-            settings_action = menu.addAction("打开设置")
+            settings_action = menu.addAction("详细设置")
             settings_action.triggered.connect(on_settings)
         self.autostart_action = menu.addAction("开机自启动")
         self.autostart_action.setCheckable(True)
@@ -1279,3 +1293,282 @@ class TrayIcon(QSystemTrayIcon):
         self.auto_stop_action.blockSignals(True)
         self.auto_stop_action.setChecked(checked)
         self.auto_stop_action.blockSignals(False)
+
+
+QUICK_W = 306
+QUICK_H = 310
+
+
+class QuickSettingsPanel(QWidget):
+    """The small card opened from the floating pill.
+
+    The full/advanced settings card is opened from the tray or desktop icon.
+    """
+
+    back_clicked = Signal()
+    live_preview_toggled = Signal(bool)
+    auto_paste_toggled = Signal(bool)
+    auto_punctuation_toggled = Signal(bool)
+    auto_stop_toggled = Signal(bool)
+    theme_selected = Signal(str)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setFixedSize(QUICK_W + MARGIN * 2, QUICK_H + MARGIN * 2)
+        self._dragging = False
+        self._drag_offset = None
+        self._build()
+        self.apply_theme()
+
+    def _build(self) -> None:
+        root = QVBoxLayout(self)
+        root.setContentsMargins(MARGIN + 18, MARGIN + 14, MARGIN + 18, MARGIN + 14)
+        root.setSpacing(6)
+
+        header = QHBoxLayout()
+        header.setSpacing(8)
+        brand = QVBoxLayout()
+        brand.setSpacing(0)
+        self.brand_label = QLabel("VOXA")
+        self.brand_label.setObjectName("brand")
+        self.brand_sub = QLabel(f"快速设置 · v{VOXA_VERSION}")
+        self.brand_sub.setObjectName("brandSub")
+        brand.addWidget(self.brand_label)
+        brand.addWidget(self.brand_sub)
+        header.addLayout(brand)
+        header.addStretch(1)
+        self.back_btn = BackButton(self)
+        self.back_btn.clicked.connect(lambda: self.back_clicked.emit())
+        header.addWidget(self.back_btn, 0, Qt.AlignTop)
+        root.addLayout(header)
+        root.addSpacing(2)
+
+        section = QLabel("常用")
+        section.setObjectName("sectionLabel")
+        root.addWidget(section)
+
+        self.auto_punct_switch = Switch(self)
+        self.auto_punct_switch.toggled.connect(self.auto_punctuation_toggled.emit)
+        root.addWidget(self._row("自动标点", self.auto_punct_switch))
+
+        self.live_switch = Switch(self)
+        self.live_switch.toggled.connect(self.live_preview_toggled.emit)
+        root.addWidget(self._row("实时预览", self.live_switch))
+
+        self.auto_switch = Switch(self)
+        self.auto_switch.toggled.connect(self.auto_paste_toggled.emit)
+        root.addWidget(self._row("自动上屏", self.auto_switch))
+
+        self.auto_stop_switch = Switch(self)
+        self.auto_stop_switch.toggled.connect(self.auto_stop_toggled.emit)
+        root.addWidget(self._row("停止说话自动结束", self.auto_stop_switch))
+
+        root.addSpacing(2)
+        self.theme_group = QButtonGroup(self)
+        self.theme_group.setExclusive(True)
+        self.theme_buttons: dict[str, QPushButton] = {}
+        theme_row = QWidget()
+        theme_layout = QHBoxLayout(theme_row)
+        theme_layout.setContentsMargins(0, 1, 0, 1)
+        theme_layout.setSpacing(5)
+        theme_label = QLabel("主题")
+        theme_label.setObjectName("rowLabel")
+        theme_layout.addWidget(theme_label)
+        theme_layout.addStretch(1)
+        for key, text in (("teal", "青色"), ("light", "浅色"), ("dark", "深色")):
+            btn = QPushButton(text)
+            btn.setObjectName("segment")
+            btn.setCheckable(True)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setFocusPolicy(Qt.NoFocus)
+            btn.setFixedSize(48, 24)
+            btn.clicked.connect(lambda checked=False, k=key: self._choose_theme(k))
+            self.theme_group.addButton(btn)
+            self.theme_buttons[key] = btn
+            theme_layout.addWidget(btn)
+        root.addWidget(theme_row)
+
+        root.addStretch(1)
+        footer = QHBoxLayout()
+        footer.setSpacing(8)
+        hint = QLabel("详细设置：桌面 Voxa 图标")
+        hint.setObjectName("footer")
+        footer.addWidget(hint)
+        footer.addStretch(1)
+        self.done_btn = QPushButton("完成")
+        self.done_btn.setObjectName("done")
+        self.done_btn.setCursor(Qt.PointingHandCursor)
+        self.done_btn.setFocusPolicy(Qt.NoFocus)
+        self.done_btn.setFixedSize(62, 27)
+        self.done_btn.clicked.connect(lambda: self.back_clicked.emit())
+        footer.addWidget(self.done_btn)
+        root.addLayout(footer)
+
+    def _row(self, title: str, switch: Switch) -> QWidget:
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+        label = QLabel(title)
+        label.setObjectName("rowLabel")
+        layout.addWidget(label)
+        layout.addStretch(1)
+        layout.addWidget(switch)
+        return row
+
+    def _choose_theme(self, key: str) -> None:
+        self.theme_buttons[key].setChecked(True)
+        self.theme_selected.emit(key)
+
+    def set_values(
+        self,
+        live_preview: bool,
+        auto_paste: bool,
+        auto_punctuation: bool,
+        auto_stop: bool,
+        theme: str,
+    ) -> None:
+        for switch, value in (
+            (self.live_switch, live_preview),
+            (self.auto_switch, auto_paste),
+            (self.auto_punct_switch, auto_punctuation),
+            (self.auto_stop_switch, auto_stop),
+        ):
+            switch.blockSignals(True)
+            switch.setChecked(value)
+            switch.blockSignals(False)
+        key = theme if theme in self.theme_buttons else "teal"
+        for k, btn in self.theme_buttons.items():
+            btn.setChecked(k == key)
+
+    def apply_theme(self) -> None:
+        self.setStyleSheet(
+            f"""
+            QLabel {{
+                color: {THEME["label"]};
+                background: transparent;
+                font-family: "Microsoft YaHei UI";
+                font-size: 9pt;
+            }}
+            QLabel#brand {{
+                color: {THEME["text"]};
+                font-family: "Segoe UI Semibold", "Microsoft YaHei UI";
+                font-size: 16pt;
+                font-weight: 700;
+                letter-spacing: 2px;
+            }}
+            QLabel#brandSub {{
+                color: {THEME["label_muted"]};
+                font-size: 7.5pt;
+            }}
+            QLabel#sectionLabel {{
+                color: {THEME["label_muted"]};
+                font-size: 7.5pt;
+                font-weight: 700;
+                letter-spacing: 1px;
+            }}
+            QLabel#rowLabel {{
+                color: {THEME["label"]};
+                font-size: 9pt;
+            }}
+            QLabel#footer {{
+                color: {THEME["footer"]};
+                font-size: 6.8pt;
+            }}
+            QPushButton#segment {{
+                color: {THEME["segment_text"]};
+                background: {THEME["segment_bg"]};
+                border: 1px solid {THEME["segment_border"]};
+                border-radius: 7px;
+                font-family: "Microsoft YaHei UI";
+                font-size: 7.2pt;
+                padding: 0;
+            }}
+            QPushButton#segment:hover {{
+                border: 1px solid {THEME["accent"]};
+            }}
+            QPushButton#segment:checked {{
+                color: {THEME["segment_checked_text"]};
+                background: {THEME["segment_checked"]};
+                border: 1px solid {THEME["segment_checked"]};
+            }}
+            QPushButton#done {{
+                color: {THEME["segment_checked_text"]};
+                background: {THEME["segment_checked"]};
+                border: none;
+                border-radius: 9px;
+                font-family: "Microsoft YaHei UI";
+                font-size: 8pt;
+                font-weight: 600;
+            }}
+            QPushButton#done:hover {{
+                background: {THEME["accent"]};
+            }}
+            """
+        )
+        for widget in (
+            self.back_btn,
+            self.auto_punct_switch,
+            self.live_switch,
+            self.auto_switch,
+            self.auto_stop_switch,
+        ):
+            widget.update()
+        self.update()
+
+    def show_near(self, pill_rect) -> None:
+        screen = QGuiApplication.screenAt(pill_rect.center()) or QGuiApplication.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            x = pill_rect.right() + 8
+            if x + self.width() > geo.right() - 8:
+                x = pill_rect.left() - self.width() - 8
+            y = pill_rect.top()
+            if y + self.height() > geo.bottom() - 8:
+                y = pill_rect.top() - self.height() - 8
+            y = max(geo.top() + 8, min(y, geo.bottom() - self.height() - 8))
+            x = max(geo.left() + 8, min(x, geo.right() - self.width() - 8))
+            self.move(x, y)
+        self.show()
+        self.raise_()
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.LeftButton:
+            child = self.childAt(event.position().toPoint())
+            if child is None or isinstance(child, QLabel):
+                self._dragging = True
+                self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self._dragging and self._drag_offset is not None:
+            self.move(event.globalPosition().toPoint() - self._drag_offset)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        self._dragging = False
+        self._drag_offset = None
+        super().mouseReleaseEvent(event)
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        del event
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        card = QRectF(MARGIN, MARGIN, QUICK_W, QUICK_H)
+        for i in (5, 4, 3, 2, 1):
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(0, 0, 0, int(THEME["shadow"])))
+            p.drawRoundedRect(card.adjusted(-i, -i + 3, i, i + 3), 12 + i, 12 + i)
+        gradient = QLinearGradient(card.topLeft(), card.bottomLeft())
+        gradient.setColorAt(0.0, c("card1"))
+        gradient.setColorAt(1.0, c("card2"))
+        p.setBrush(gradient)
+        p.setPen(QPen(c("card_border"), 0.8))
+        p.drawRoundedRect(card, 14, 14)

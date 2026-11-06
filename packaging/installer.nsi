@@ -6,7 +6,7 @@
 
 !define APP_NAME "Voxa"
 !define APP_EXE "Voxa.exe"
-!define APP_VERSION "0.7.1"
+!define APP_VERSION "0.7.2"
 !define APP_PUBLISHER "Voxa"
 !define APP_ID "Voxa"
 !define SEC_CORE_ID 0
@@ -23,7 +23,7 @@ BrandingText "Voxa · 本地语音输入"
 Icon "app.ico"
 UninstallIcon "app.ico"
 
-VIProductVersion "0.7.1.0"
+VIProductVersion "0.7.2.0"
 VIAddVersionKey "ProductName" "${APP_NAME}"
 VIAddVersionKey "CompanyName" "${APP_PUBLISHER}"
 VIAddVersionKey "FileDescription" "Voxa 本地语音输入安装程序"
@@ -35,10 +35,10 @@ VIAddVersionKey "LegalCopyright" "MIT License"
 !define MUI_ICON "app.ico"
 !define MUI_UNICON "app.ico"
 !define MUI_WELCOMEPAGE_TITLE "安装 Voxa"
-!define MUI_WELCOMEPAGE_TEXT "Voxa 是一个完全本地的语音输入工具，声音不会离开这台电脑。$\r$\n$\r$\n安装后 Voxa 接管 Win+H：按一下开始，停止说话约 1.8 秒自动输入并关闭。系统自带语音输入不会弹出。$\r$\n$\r$\n基础安装包含 OpenVINO 运行时、base 预览模型、small 最终模型和 OpenAI large-v3-turbo 高精度模型（默认勾选，性能弱的电脑可取消）。"
+!define MUI_WELCOMEPAGE_TEXT "Voxa 是一个完全本地的语音输入工具，声音不会离开这台电脑。$\r$\n$\r$\n安装后 Voxa 接管 Win+H：按一下开始，停止说话约 1.8 秒自动输入，浮窗保持打开。系统自带语音输入不会弹出。$\r$\n$\r$\n基础安装包含 OpenVINO 运行时、base 预览模型、small 最终模型和 OpenAI large-v3-turbo 高精度模型（默认勾选，性能弱的电脑可取消）。"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT "启动 Voxa（Win+H）"
-!define MUI_FINISHPAGE_TEXT "安装完成。$\r$\n$\r$\nVoxa 已在后台运行，按 Win+H 开始说话；停止说话约 1.8 秒自动生成。$\r$\n$\r$\n点击托盘图标可打开设置：主题、CPU/GPU、静音时长、自动标点等。"
+!define MUI_FINISHPAGE_TEXT "安装完成。$\r$\n$\r$\nVoxa 已在后台运行，按 Win+H 开始说话；停止说话约 1.8 秒自动生成并上屏，浮窗保持打开。$\r$\n$\r$\n点击托盘图标可打开详细设置：主题、CPU/GPU、静音时长、自动标点等；浮窗“设置”打开快速设置。"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_COMPONENTS

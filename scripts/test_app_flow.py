@@ -55,12 +55,12 @@ def main() -> int:
 
     def open_settings() -> None:
         app_ui._on_settings_clicked()
-        app_ui.settings.grab().save(str(ROOT / "tests" / "app_settings_live.png"))
-        print("settings open", app_ui.settings_visible, app_ui.settings.isVisible(), flush=True)
+        app_ui.quick.grab().save(str(ROOT / "tests" / "app_quick_live.png"))
+        print("quick settings open", app_ui.quick_visible, app_ui.quick.isVisible(), flush=True)
 
     def toggle_preview() -> None:
-        app_ui._on_settings_back()
-        print("settings closed", flush=True)
+        app_ui._on_quick_back()
+        print("quick settings closed", flush=True)
 
     def finish() -> None:
         app_ui.pill.grab().save(str(ROOT / "tests" / "app_pill_before_finish.png"))
@@ -68,6 +68,18 @@ def main() -> int:
         print("finish requested", app_ui.state, flush=True)
         app_ui.pill.grab().save(str(ROOT / "tests" / "app_pill_finishing.png"))
 
+    def after_final() -> None:
+        print(
+            "after final",
+            app_ui.state,
+            "pill_visible=" + str(app_ui.pill_visible),
+            "pill_state=" + app_ui.pill.state,
+            "quick_visible=" + str(app_ui.quick_visible),
+            flush=True,
+        )
+        app_ui.pill.grab().save(str(ROOT / "tests" / "app_pill_result.png"))
+
+    QTimer.singleShot(13000, after_final)
     QTimer.singleShot(3600, snap_recording)
     QTimer.singleShot(4000, pause)
     QTimer.singleShot(4800, resume)

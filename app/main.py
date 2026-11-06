@@ -37,7 +37,7 @@ from injector import (
 )
 from ov_asr import available_devices
 from recorder import Recorder
-from ui import PillWindow, SettingsPanel, TrayIcon, set_theme
+from ui import PillWindow, QuickSettingsPanel, SettingsPanel, TrayIcon, set_theme
 
 log = logging.getLogger("voxa")
 
@@ -104,6 +104,7 @@ class VoxaApp(QObject):
 
         self.pill = PillWindow(hotkey_label=self.hotkey_label)
         self.settings = SettingsPanel()
+        self.quick = QuickSettingsPanel()
         self.pill.mic_clicked.connect(self._on_mic_clicked)
         self.pill.close_clicked.connect(self._on_close_clicked)
         self.pill.settings_clicked.connect(self._on_settings_clicked)
@@ -118,6 +119,12 @@ class VoxaApp(QObject):
         self.settings.device_selected.connect(self._on_device_selected)
         self.settings.theme_selected.connect(self._on_theme_selected)
         self.settings.autostart_toggled.connect(self._on_toggle_autostart)
+        self.quick.back_clicked.connect(self._on_quick_back)
+        self.quick.live_preview_toggled.connect(self._on_live_preview_toggled)
+        self.quick.auto_paste_toggled.connect(self._on_auto_paste_toggled)
+        self.quick.auto_punctuation_toggled.connect(self._on_auto_punctuation_toggled)
+        self.quick.auto_stop_toggled.connect(self._on_auto_stop_toggled)
+        self.quick.theme_selected.connect(self._on_theme_selected)
 
         self.recorder = Recorder(config.get("input_device"))
         self.engine = self._create_engine()
@@ -150,6 +157,13 @@ class VoxaApp(QObject):
             silence_ms=int(self.config.get("auto_stop_silence_ms", 1800)),
             device=str(self.config.get("ov_device", "CPU")).upper(),
             autostart=bool(self.config.get("autostart", True)),
+        )
+        self.quick.set_values(
+            self.live_preview_enabled,
+            self.auto_paste,
+            self.auto_punctuation,
+            self.auto_stop_enabled,
+            self.theme,
         )
         self.hotkey = HotkeyManager(
             on_hotkey=lambda: self.events.put("hotkey"),
@@ -189,6 +203,7 @@ class VoxaApp(QObject):
         self.last_preview_samples = 0
         self.pill_visible = False
         self.settings_visible = False
+        self.quick_visible = False
         self.target_hwnd = 0
         self.session_started = 0.0
         self.paused_accum = 0.0
@@ -338,12 +353,16 @@ class VoxaApp(QObject):
             return
 
         current = foreground_window()
-        pill_id = int(self.pill.winId())
-        settings_id = int(self.settings.winId())
-        if current and current not in (pill_id, settings_id):
+        own_ids = (
+            int(self.pill.winId()),
+            int(self.settings.winId()),
+            int(self.quick.winId()),
+        )
+        if current and current not in own_ids:
             self.target_hwnd = current
         self.toast_token += 1
         self._on_settings_back()
+        self._on_quick_back()
         self.session_id += 1
         self.preview_text = ""
         self.live_typed_text = ""
@@ -356,6 +375,7 @@ class VoxaApp(QObject):
         self.last_preview_samples = 0
         self.last_elapsed = 0.0
         self.paused_accum = 0.0
+        self.close_after_finish = False
         try:
             self.recorder.start()
         except Exception as exc:
@@ -548,6 +568,7 @@ class VoxaApp(QObject):
             not self.live_preview_enabled
             or self.state != "recording"
             or self.settings_visible
+            or self.quick_visible
         ):
             return
         new = (text or "").strip("\r\n")
@@ -565,7 +586,11 @@ class VoxaApp(QObject):
                 return
         self.pending_live_text = ""
         current = foreground_window()
-        own_windows = (int(self.pill.winId()), int(self.settings.winId()))
+        own_windows = (
+            int(self.pill.winId()),
+            int(self.settings.winId()),
+            int(self.quick.winId()),
+        )
         if current and current != self.target_hwnd and current not in own_windows:
             # The user switched to another app; don't steal focus every
             # preview. The final pass will still try to correct the text.
@@ -644,11 +669,27 @@ class VoxaApp(QObject):
         except Exception as exc:
             log.exception("文字输入失败")
             self.state = "ready"
+            if getattr(self, "close_after_finish", False):
+                self.close_after_finish = False
+                self._hide_all()
+                self.tray.set_status("文字输入失败")
+                return
+            self.pill.set_mic_enabled(True)
             self.pill.set_state("error", f"文字输入失败：{exc}")
             self.tray.set_status("文字输入失败")
             return
         self.live_typed_text = ""
-        self._hide_all()
+        self.state = "ready"
+        if getattr(self, "close_after_finish", False):
+            self.close_after_finish = False
+            self._hide_all()
+            self.tray.set_status(f"就绪 · 按 {self.hotkey_label} 说话")
+            return
+        self.pill.set_mic_enabled(True)
+        self.pill.set_state("ready", text)
+        self.pill.show_pill()
+        self.pill_visible = True
+        self.hotkey.set_escape_armed(True)
         self.tray.set_status(f"就绪 · 按 {self.hotkey_label} 说话")
 
     def _on_final_failed(self, message: str, fid: int) -> None:
@@ -656,18 +697,66 @@ class VoxaApp(QObject):
             return
         self.state = "ready"
         self.tray.set_status("识别失败")
+        if getattr(self, "close_after_finish", False):
+            self.close_after_finish = False
+            self._hide_all()
+            log.error("最终识别失败: %s", message)
+            return
+        self.pill.set_mic_enabled(True)
         self.pill.set_state("error", message)
         log.error("最终识别失败: %s", message)
 
     # ---- settings / tray ------------------------------------------------
     def _on_settings_clicked(self) -> None:
+        """Small, quick settings card opened from the floating pill."""
+        if self.quick_visible:
+            self._on_quick_back()
+            return
         if self.settings_visible:
             self._on_settings_back()
-            return
         if not self.pill_visible:
             self.pill.show_pill()
             self.pill_visible = True
             self.hotkey.set_escape_armed(True)
+        self.quick.set_values(
+            self.live_preview_enabled,
+            self.auto_paste,
+            self.auto_punctuation,
+            self.auto_stop_enabled,
+            self.theme,
+        )
+        self.quick.apply_theme()
+        self.quick.show_near(self.pill.frameGeometry())
+        self.quick_visible = True
+
+    def _on_quick_back(self) -> None:
+        self.quick.hide()
+        self.quick_visible = False
+        if self.state == "recording":
+            QTimer.singleShot(60, self._restore_target_focus)
+
+    def _on_settings_back(self) -> None:
+        self.settings.hide()
+        self.settings_visible = False
+        if self.state == "recording":
+            QTimer.singleShot(60, self._restore_target_focus)
+
+    def _open_settings_from_tray(self) -> None:
+        """Detailed settings, opened by the desktop shortcut / tray.
+
+        This path deliberately does not create or show the voice pill.
+        """
+        if self.quick_visible:
+            self._on_quick_back()
+        if self.settings_visible:
+            self.settings.raise_()
+            self.settings.activateWindow()
+            return
+        # Desktop/tray settings must not bring up the voice pill.
+        if self.pill_visible and self.state in ("ready", "error"):
+            self.pill.hide()
+            self.pill_visible = False
+            self.hotkey.set_escape_armed(False)
         self.settings.set_values(
             self.live_preview_enabled,
             self.auto_paste,
@@ -680,19 +769,9 @@ class VoxaApp(QObject):
             device=str(self.config.get("ov_device", "CPU")).upper(),
             autostart=bool(self.config.get("autostart", True)),
         )
-        self.settings.show_near(self.pill.frameGeometry())
+        self.settings.apply_theme()
+        self.settings.show_centered()
         self.settings_visible = True
-
-    def _on_settings_back(self) -> None:
-        self.settings.hide()
-        self.settings_visible = False
-        if self.state == "recording":
-            QTimer.singleShot(60, self._restore_target_focus)
-
-    def _open_settings_from_tray(self) -> None:
-        if not self.pill_visible:
-            self._show_pill_from_tray()
-        self._on_settings_clicked()
 
     def _show_pill_from_tray(self) -> None:
         if self.state not in ("ready", "error"):
@@ -749,6 +828,9 @@ class VoxaApp(QObject):
         self.settings.auto_stop_switch.setChecked(enabled)
         self.settings.auto_stop_switch.blockSignals(False)
         self.settings.silence_slider.setEnabled(enabled)
+        self.quick.auto_stop_switch.blockSignals(True)
+        self.quick.auto_stop_switch.setChecked(enabled)
+        self.quick.auto_stop_switch.blockSignals(False)
         log.info("停止说话自动结束: %s", enabled)
 
     def _on_silence_changed(self, milliseconds: int) -> None:
@@ -763,6 +845,7 @@ class VoxaApp(QObject):
         save_config(self.config)
         self.pill.apply_theme()
         self.settings.apply_theme()
+        self.quick.apply_theme()
         log.info("主题: %s", self.theme)
 
     def _on_device_selected(self, device: str) -> None:
@@ -942,6 +1025,9 @@ class VoxaApp(QObject):
         self._live_timer.stop()
         self.settings.hide()
         self.settings_visible = False
+        self.quick.hide()
+        self.quick_visible = False
+        self.close_after_finish = False
         self.pill.hide()
         self.pill_visible = False
         self.live_typed_text = ""
@@ -954,6 +1040,7 @@ class VoxaApp(QObject):
     def _on_close_clicked(self) -> None:
         log.info("关闭按钮点击 (state=%s)", self.state)
         if self.state in ("recording", "paused", "finishing"):
+            self.close_after_finish = True
             self._finish_and_close()
         else:
             self._hide_all()
@@ -966,6 +1053,7 @@ class VoxaApp(QObject):
         finally:
             self.pill.hide()
             self.settings.hide()
+            self.quick.hide()
             self.tray.hide()
             self.app.quit()
 
@@ -1059,7 +1147,10 @@ def main() -> int:
             QMessageBox.information(
                 None, "Voxa", f"Voxa 已经在运行了。\n按 {hotkey_label} 即可开始语音输入。"
             )
-        return 0
+        # QApplication was created before the mutex check; returning normally
+        # can leave a tiny Qt process alive. Exit the secondary process now.
+        app.quit()
+        os._exit(0)
 
     activation_event = create_activation_event()
 

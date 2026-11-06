@@ -1,1 +1,1 @@
-ae61ee8eb9cd18db0fee2bc7aab4017900ace8cbbeba1408bcbc613122b0d555  Voxa-Setup-0.7.1.exe
+386a169b1f808a86e5fd741ea1c36cc2e656f5159dd4809fa3b49235ddbb502a  Voxa-Setup-0.7.2.exe

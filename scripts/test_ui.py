@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / "app"))
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from ui import PillWindow, SettingsPanel, make_icon, set_theme  # noqa: E402
+from ui import PillWindow, QuickSettingsPanel, SettingsPanel, make_icon, set_theme  # noqa: E402
 
 
 def main() -> None:
@@ -58,15 +58,24 @@ def main() -> None:
             autostart=True,
         )
         settings.show()
+        quick = QuickSettingsPanel()
+        quick.set_values(True, True, True, True, theme)
+        quick.show()
         pill.set_state("recording")
         pill.set_level(0.42)
         app.processEvents()
         path = out / f"ui_settings_{theme}.png"
         settings.grab().save(str(path))
         print("saved", path)
+        quick.grab().save(str(out / f"ui_quick_{theme}.png"))
         pill.grab().save(str(out / f"ui_pill_{theme}.png"))
+        pill.set_state("ready", "这是最终识别结果，浮窗保持打开。")
+        app.processEvents()
+        pill.grab().save(str(out / f"ui_pill_result_{theme}.png"))
         settings.hide()
+        quick.hide()
         settings.deleteLater()
+        quick.deleteLater()
 
     set_theme("teal")
     icon_path = out / "tray_icon.png"

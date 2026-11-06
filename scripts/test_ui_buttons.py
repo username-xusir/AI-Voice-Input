@@ -12,7 +12,7 @@ from PySide6.QtCore import QPoint, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from ui import PillWindow, SettingsPanel, set_theme  # noqa: E402
+from ui import PillWindow, QuickSettingsPanel, SettingsPanel, set_theme  # noqa: E402
 
 
 def main() -> int:
@@ -92,6 +92,22 @@ def main() -> int:
         "autostop", auto_stops,
     )
 
+    quick = QuickSettingsPanel()
+    quick.set_values(True, True, True, True, "teal")
+    quick.show()
+    app.processEvents()
+    quick_punct = []
+    quick_themes = []
+    quick_auto_stop = []
+    quick.auto_punctuation_toggled.connect(quick_punct.append)
+    quick.theme_selected.connect(quick_themes.append)
+    quick.auto_stop_toggled.connect(quick_auto_stop.append)
+    QTest.mouseClick(quick.auto_punct_switch, Qt.LeftButton)
+    QTest.mouseClick(quick.theme_buttons["dark"], Qt.LeftButton)
+    QTest.mouseClick(quick.auto_stop_switch, Qt.LeftButton)
+    app.processEvents()
+    print("quick", quick_punct, quick_themes, quick_auto_stop)
+
     ok = (
         events == {"mic": 1, "settings": 1, "close": 1}
         and moved
@@ -103,6 +119,9 @@ def main() -> int:
         and silences == [2600]
         and auto_stops == [False]
         and settings.silence_slider.isEnabled() is False
+        and quick_punct == [False]
+        and quick_themes == ["dark"]
+        and quick_auto_stop == [False]
     )
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1
