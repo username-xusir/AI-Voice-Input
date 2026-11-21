@@ -1,0 +1,68 @@
+name: Republish Voxa 0.7.5 installer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  republish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reconstruct and verify the installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir installer
+          gh release download v0.7.5 \
+            --repo username-xusir/AI-Voice-Input \
+            --dir installer \
+            --pattern 'Voxa-Setup-0.7.5.part.???'
+          python3 - <<'PY'
+          from hashlib import sha256
+          from pathlib import Path
+
+          expected_size = 684144069
+          expected_hash = "d328684c94f732ab871fdab622c1ff5eb73dea173261441b8210ccc6a1c34f71"
+          parts = sorted(Path("installer").glob("Voxa-Setup-0.7.5.part.[0-9][0-9][0-9]"))
+          expected_names = [f"Voxa-Setup-0.7.5.part.{i:03d}" for i in range(1, 67)]
+          if [part.name for part in parts] != expected_names:
+              raise SystemExit(f"Expected all 66 parts; found {len(parts)}.")
+
+          installer = Path("installer/Voxa-Setup-0.7.5.exe")
+          with installer.open("wb") as output:
+              for part in parts:
+                  with part.open("rb") as source:
+                      while chunk := source.read(1024 * 1024):
+                          output.write(chunk)
+
+          digest = sha256()
+          with installer.open("rb") as source:
+              while chunk := source.read(1024 * 1024):
+                  digest.update(chunk)
+          actual_hash = digest.hexdigest()
+          if installer.stat().st_size != expected_size or actual_hash != expected_hash:
+              raise SystemExit(f"Installer verification failed: size={installer.stat().st_size}, sha256={actual_hash}")
+          print(f"Verified installer: {installer.stat().st_size} bytes, sha256={actual_hash}")
+          PY
+
+      - name: Upload the installer and remove temporary transfer parts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v0.7.5 installer/Voxa-Setup-0.7.5.exe \
+            --repo username-xusir/AI-Voice-Input
+          asset="$(gh api repos/username-xusir/AI-Voice-Input/releases/tags/v0.7.5 \
+            --jq '.assets[] | select(.name == "Voxa-Setup-0.7.5.exe") | "\(.size) \(.digest)"')"
+          test "$asset" = "684144069 sha256:d328684c94f732ab871fdab622c1ff5eb73dea173261441b8210ccc6a1c34f71"
+
+          ids="$(gh api repos/username-xusir/AI-Voice-Input/releases/tags/v0.7.5 \
+            --jq '.assets[] | select(.name | test("^Voxa-Setup-0\\.7\\.5\\.part\\.[0-9]{3}$")) | .id')"
+          for id in $ids; do
+            gh api -X DELETE "repos/username-xusir/AI-Voice-Input/releases/assets/$id"
+          done
+
+          remaining="$(gh api repos/username-xusir/AI-Voice-Input/releases/tags/v0.7.5 \
+            --jq '[.assets[] | select(.name | test("^Voxa-Setup-0\\.7\\.5\\.part\\.[0-9]{3}$"))] | length')"
+          test "$remaining" = "0"
