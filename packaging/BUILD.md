@@ -77,8 +77,10 @@ tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 
 上传：
 
-- `release\Voxa-Setup-0.7.5.exe`
+- `release\Voxa-Setup-0.7.5.exe.part000` 到 `part004`（单个 653 MB 文件在当前网络上传会被重置，因此按 150 MB 分卷）
+- `JOIN-INSTALLER.bat`
 - `release\SHA256SUMS.txt`
+- `release\PARTS-SHA256.txt`
 - `release\RELEASE_NOTES.md`
 
 建议 Release 说明包含：
