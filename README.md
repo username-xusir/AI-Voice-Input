@@ -38,12 +38,9 @@ Voxa 是 Windows 10/11 的本地语音输入浮窗。它接管 **Win+H**：按�
 
 ## 安装包（推荐）
 
-从 [GitHub Releases](https://github.com/username-xusir/AI-Voice-Input/releases) 下载 0.7.5：
+从 [GitHub Releases](https://github.com/username-xusir/AI-Voice-Input/releases) 下载 `Voxa-Setup-0.7.5.exe`。
 
-- GitHub 上以 5 个分卷提供：`Voxa-Setup-0.7.5.exe.part000` 到 `part004`。
-- 同时下载 `JOIN-INSTALLER.bat`，放在同一目录，双击合并。
-- 合并后得到 `Voxa-Setup-0.7.5.exe`，SHA256 应为 `d328684c94f732ab871fdab622c1ff5eb73dea173261441b8210ccc6a1c34f71`。
-- 如果 Releases 里直接有完整 `Voxa-Setup-0.7.5.exe`，直接下载即可。
+SHA256：`d328684c94f732ab871fdab622c1ff5eb73dea173261441b8210ccc6a1c34f71`
 
 安装特性：
 
@@ -54,7 +51,7 @@ Voxa 是 Windows 10/11 的本地语音输入浮窗。它接管 **Win+H**：按�
 - 默认开机自启动，后台静默运行，只留托盘。
 - 卸载：Windows 设置 → 应用 → **Voxa**，或开始菜单“卸载 Voxa”。
 
-安装包不放进 git：在 GitHub Releases 上传分卷、`JOIN-INSTALLER.bat`、`SHA256SUMS.txt` 和 `RELEASE_NOTES.md`。
+安装包不放进 git：在 GitHub Releases 上传 `Voxa-Setup-0.7.5.exe`、`SHA256SUMS.txt` 和 `RELEASE_NOTES.md`。
 
 ## 源码安装 / 启动
 

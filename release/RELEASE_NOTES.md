@@ -4,14 +4,9 @@ Windows 10/11 本地语音输入，接管 Win+H。完全离线，音频不上传
 
 ## 安装
 
-GitHub Releases 提供 5 个分卷和合并脚本：
+下载 `Voxa-Setup-0.7.5.exe`，双击安装。安装到当前用户目录，不需要管理员权限。
 
-1. 下载 `Voxa-Setup-0.7.5.exe.part000` 到 `part004`，以及 `JOIN-INSTALLER.bat`。
-2. 放在同一目录，运行 `JOIN-INSTALLER.bat`，生成 `Voxa-Setup-0.7.5.exe`。
-3. 核对 SHA256：`d328684c94f732ab871fdab622c1ff5eb73dea173261441b8210ccc6a1c34f71`
-4. 运行生成的安装程序。安装到当前用户目录，不需要管理员权限。
-
-如果 Releases 里直接有完整 `Voxa-Setup-0.7.5.exe`，直接下载即可。
+SHA256：`d328684c94f732ab871fdab622c1ff5eb73dea173261441b8210ccc6a1c34f71`
 
 安装包未做代码签名，Windows SmartScreen 可能提示“未知发布者”，选择“更多信息 → 仍要运行”。
 
