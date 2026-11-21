@@ -689,7 +689,7 @@
         <div class="card download-main reveal">
           <div class="kicker">06 · 下载</div>
           <h2>把话，直接说进输入框。</h2>
-          <p>Windows 10/11 · x64 · 安装包已包含 OpenVINO 运行时、base / small 模型和默认勾选的 large 模型。</p>
+          <p>Windows 10/11 · x64 · 安装包已包含 OpenVINO 运行时、Tiny / Small 模型和默认勾选的 large-v3-turbo 模型。</p>
           <div class="actions">
             <!-- GitHub Releases -->
             <a class="btn btn-primary" href="https://github.com/username-xusir/AI-Voice-Input/releases/latest" rel="noopener">打开 GitHub Releases</a>
@@ -700,13 +700,14 @@
             <span>·</span>
             <span>653 MB</span>
             <span>·</span>
-            <span>SHA256 <code>1103c661…e906ae2</code></span>
+            <span>SHA256 <code>d328684c…1c34f71</code></span>
           </div>
+          <p class="note">GitHub Releases 以 5 个 150 MB 分卷 + <code>JOIN-INSTALLER.bat</code> 提供；下载到同一目录，运行脚本合并后再安装。</p>
         </div>
 
         <div class="card steps reveal delay-1">
           <h3>三步开始</h3>
-          <div class="step-row"><span class="k">01</span><p>下载并运行 <b>Voxa-Setup-0.7.5.exe</b>。安装到当前用户目录，不需要管理员权限。</p></div>
+          <div class="step-row"><span class="k">01</span><p>下载 5 个分卷和 <b>JOIN-INSTALLER.bat</b>，合并生成 <b>Voxa-Setup-0.7.5.exe</b>，然后运行。安装到当前用户目录，不需要管理员权限。</p></div>
           <div class="step-row"><span class="k">02</span><p>安装器会自动处理旧版、写入开机自启动，并在托盘静默运行。</p></div>
           <div class="step-row"><span class="k">03</span><p>在任意输入框按 <b>Win+H</b> 说话；停下约 1.8 秒，文字自动上屏，浮窗保持打开。</p></div>
           <div class="note" style="background:rgba(30,200,216,.06); border-color:rgba(30,200,216,.16); color:#9adce2;">浮窗里的“设置”是快速设置；桌面 Voxa 图标 / 托盘左键打开详细设置。</div>
