@@ -30,6 +30,7 @@ def main() -> int:
     config["live_preview"] = True
     config["language"] = "zh"
     config["high_accuracy"] = False
+    config["model_tier"] = "small"
     app_ui = VoxaApp(app, config)
 
     print("loading models...", flush=True)

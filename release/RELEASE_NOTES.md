@@ -1,13 +1,12 @@
-# Voxa 0.7.2
+# Voxa 0.7.5
 
-Windows 11 本地语音输入，接管 Win+H。完全离线，音频不上传。
+Windows 10/11 本地语音输入，接管 Win+H。完全离线，音频不上传。
 
 ## 安装
 
-下载 `Voxa-Setup-0.7.2.exe`，双击安装。安装到当前用户目录，不需要管理员权限。
+下载 `Voxa-Setup-0.7.5.exe`，双击安装。安装到当前用户目录，不需要管理员权限。
 
-SHA256：`386a169b1f808a86e5fd741ea1c36cc2e656f5159dd4809fa3b49235ddbb502a`
-
+SHA256：`d328684c94f732ab871fdab622c1ff5eb73dea173261441b8210ccc6a1c34f71`
 
 安装包未做代码签名，Windows SmartScreen 可能提示“未知发布者”，选择“更多信息 → 仍要运行”。
 
@@ -15,20 +14,46 @@ SHA256：`386a169b1f808a86e5fd741ea1c36cc2e656f5159dd4809fa3b49235ddbb502a`
 
 - Voxa 主程序（PyInstaller）
 - OpenVINO GenAI CPU 运行时
-- Whisper base int4 预览模型
-- Whisper small int4 最终模型
-- OpenAI Whisper large-v3-turbo int4 高精度模型（默认勾选；性能弱的电脑可在组件页取消）
+- Whisper Tiny int4 最小模型（约 40 MB）
+- Whisper Small int4 均衡模型（约 155 MB）
+- OpenAI Whisper large-v3-turbo int4 最大模型（约 456 MB，默认勾选；性能弱的电脑可在组件页取消）
 
-从旧版 VoiceIn 升级时，安装器会停止旧进程、移除旧版自启动和快捷方式；旧配置自动迁移到 `%LOCALAPPDATA%\Voxa`。
+三档模型都支持多语言。从旧版 VoiceIn 升级时，安装器会停止旧进程、移除旧版自启动和快捷方式；旧配置自动迁移到 `%LOCALAPPDATA%\Voxa`。
 
-## 0.7.2 变更
+## 0.7.5 新增
+
+- **三档多语言模型**：详细设置新增“最终模型 → 最小 / 均衡 / 最大”。
+  - 最小：Whisper Tiny int4，最快，适合低性能电脑。
+  - 均衡：Whisper Small int4，默认，速度与质量平衡。
+  - 最大：Whisper large-v3-turbo int4，最准，但 CPU 上最慢；未安装时不可选。
+- 实时预览固定使用 Whisper Tiny，降低预览延迟。
+- 旧的 Whisper base 预览模型替换为 Tiny；升级安装会自动把模型路径规范化到新安装目录。
+- 三档模型均为 OpenAI Whisper 多语言模型，中文、英文及其他 Whisper 支持语言共用同一套本地推理。
+- 最大档使用 large-v3-turbo，而不是非 turbo 的 large-v3：同代多语言模型，turbo 在 CPU 上还能用于语音输入；非 turbo 版本单句可能需要 30–60 秒。
+
+## 0.7.4 新增
+
+- **检查更新**：详细设置页左下角新增“检查更新”，托盘菜单也新增“检查更新”。
+  - 读取 GitHub Releases 最新版本号并与当前版本比较。
+  - 有新版本时显示版本号、更新说明，并提供“打开下载页”按钮。
+  - 不自动下载、不自动安装，避免未经确认执行安装程序。
+  - 网络失败时提示可手动打开 GitHub Releases。
+- 当前版本号更新到 0.7.4。
+
+## 0.7.3 变更（继续保留）
 
 - **说完不自动关窗**：停止说话、最终校正、自动上屏完成后，浮窗保持打开，显示最终结果；可以继续点麦克风或按 Win+H 开始下一句，点 × 或按 Esc 才关闭。
 - **快速设置 / 详细设置分离**：
   - 浮窗“设置”打开**快速设置**：自动标点、实时预览、自动上屏、停止说话自动结束、主题。
   - 桌面 Voxa 图标、托盘左键、托盘“详细设置”、再次启动打开**详细设置**：完整的高精度、CPU/GPU、语言、静音时长、主题、开机自启动等。
   - 桌面图标打开详细设置时**不再弹出语音浮窗**。
-- 版本号更新到 0.7.2，设置页标题显示 `v0.7.2`。
+- 版本号更新到 0.7.3，设置页标题显示 `v0.7.3`。
+- **Windows 10 启动闪退修复**：
+  - OpenVINO 改为按需导入，启动 UI 时不再加载原生运行时。
+  - 移除启动阶段的 OpenVINO GPU 设备枚举，避免部分 Windows 10 显卡驱动在 `Core().available_devices` 处原生崩溃。
+  - 启动日志记录系统版本、CPU AVX2；新增 `%LOCALAPPDATA%\Voxa\logs\crash.log`（faulthandler）。
+  - 新增 `Voxa.exe --safe` 安全模式：跳过模型加载，只打开详细设置，用于判断闪退发生在 UI 还是模型/驱动。
+  - 修复再次启动时第二个 Voxa 进程不退出、残留进程的问题。
 
 ## 0.7.1 修复（继续保留）
 
@@ -56,14 +81,14 @@ SHA256：`386a169b1f808a86e5fd741ea1c36cc2e656f5159dd4809fa3b49235ddbb502a`
 
 ## 性能
 
-- 预览 base：约 0.8–1.5 秒一次
-- 默认最终 small：约 3–5 秒
-- 高精度 large：CPU 约 10–20 秒，默认关闭，按需在设置里开启
-- 启动：约 4–6 秒（默认只加载 small + base）
+- 预览 Tiny：约 0.4–0.8 秒一次
+- 默认最终 Small：约 3–5 秒
+- 最大 Large Turbo：CPU 约 10–20 秒，按需在设置里开启
+- 启动：约 4–6 秒（默认加载 Tiny + Small）
 
 ## 已知限制
 
-- 高精度 large 较慢，默认关闭。
+- 最大模型 large-v3-turbo 较慢，默认使用 Small；低性能电脑建议选 Tiny。
 - 实时输入依赖光标；录音时不要移动光标或改选区。
 - 本机 Intel Iris Xe 核显用 OpenVINO GPU 反而更慢，默认 CPU；独显机器可自行切换。
 - 极少数不接收 Unicode 字符的应用可能无法实时上屏。

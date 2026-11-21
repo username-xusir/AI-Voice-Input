@@ -9,6 +9,7 @@ from __future__ import annotations
 import ctypes
 import logging
 import os
+import platform
 import queue
 import subprocess
 import sys
@@ -35,9 +36,16 @@ from injector import (
     send_text_edit,
     text_delta,
 )
-from ov_asr import available_devices
 from recorder import Recorder
-from ui import PillWindow, QuickSettingsPanel, SettingsPanel, TrayIcon, set_theme
+from ui import (
+    VOXA_VERSION,
+    PillWindow,
+    QuickSettingsPanel,
+    SettingsPanel,
+    TrayIcon,
+    set_theme,
+)
+from updater import RELEASES_URL, ReleaseInfo, check_latest, is_newer
 
 log = logging.getLogger("voxa")
 
@@ -65,6 +73,8 @@ class Bridge(QObject):
     final_failed = Signal(str, int)
     engine_ready = Signal(object)
     engine_failed = Signal(str, str)
+    update_ready = Signal(object)
+    update_failed = Signal(str)
 
 
 class VoxaApp(QObject):
@@ -73,12 +83,14 @@ class VoxaApp(QObject):
         app: QApplication,
         config: dict,
         silent: bool = False,
+        safe: bool = False,
         activation_event: int | None = None,
     ) -> None:
         super().__init__()
         self.app = app
         self.config = config
         self.silent = silent
+        self.safe = safe
         self.activation_event = activation_event
         self.open_settings_on_start = not silent
         self.state = "loading"
@@ -91,6 +103,8 @@ class VoxaApp(QObject):
         self.bridge.final_failed.connect(self._on_final_failed)
         self.bridge.engine_ready.connect(self._on_engine_ready)
         self.bridge.engine_failed.connect(self._on_engine_failed)
+        self.bridge.update_ready.connect(self._on_update_ready)
+        self.bridge.update_failed.connect(self._on_update_failed)
 
         hotkey_mode = str(config.get("hotkey", "win+h"))
         self.hotkey_label = hotkey_label_for(hotkey_mode)
@@ -99,7 +113,10 @@ class VoxaApp(QObject):
         self.auto_stop_enabled = bool(config.get("auto_stop", True))
         self.auto_paste = bool(config.get("auto_paste", True))
         self.auto_punctuation = bool(config.get("auto_punctuation", True))
-        self.high_accuracy = bool(config.get("high_accuracy", False))
+        self.model_tier = str(config.get("model_tier", "small")).lower()
+        if self.model_tier not in ("tiny", "small", "large"):
+            self.model_tier = "small"
+        self.high_accuracy = self.model_tier == "large"
         self.theme = set_theme(str(config.get("theme", "teal")))
 
         self.pill = PillWindow(hotkey_label=self.hotkey_label)
@@ -111,7 +128,7 @@ class VoxaApp(QObject):
         self.settings.back_clicked.connect(self._on_settings_back)
         self.settings.live_preview_toggled.connect(self._on_live_preview_toggled)
         self.settings.auto_paste_toggled.connect(self._on_auto_paste_toggled)
-        self.settings.high_accuracy_toggled.connect(self._on_high_accuracy_toggled)
+        self.settings.model_tier_selected.connect(self._on_model_tier_selected)
         self.settings.language_selected.connect(self._on_language_selected)
         self.settings.auto_punctuation_toggled.connect(self._on_auto_punctuation_toggled)
         self.settings.auto_stop_toggled.connect(self._on_auto_stop_toggled)
@@ -119,6 +136,7 @@ class VoxaApp(QObject):
         self.settings.device_selected.connect(self._on_device_selected)
         self.settings.theme_selected.connect(self._on_theme_selected)
         self.settings.autostart_toggled.connect(self._on_toggle_autostart)
+        self.settings.check_update_clicked.connect(self._check_updates)
         self.quick.back_clicked.connect(self._on_quick_back)
         self.quick.live_preview_toggled.connect(self._on_live_preview_toggled)
         self.quick.auto_paste_toggled.connect(self._on_auto_paste_toggled)
@@ -131,25 +149,24 @@ class VoxaApp(QObject):
         self.high_model_available = bool(self.engine.ov_model_dir) and Path(
             self.engine.ov_model_dir
         ).exists()
-        if not self.high_model_available:
+        if not self.high_model_available and self.model_tier == "large":
+            self.model_tier = "small"
             self.high_accuracy = False
+            self.config["model_tier"] = "small"
             self.config["high_accuracy"] = False
+            self.engine.model_tier = "small"
             self.engine.use_high_accuracy = False
-        self.settings.set_high_available(self.high_model_available)
-        self.gpu_available = False
-        try:
-            devices = available_devices()
-            self.gpu_available = any(d.startswith("GPU") for d in devices)
-        except Exception:
-            log.exception("检测 OpenVINO GPU 失败")
+        self.settings.set_model_available(self.high_model_available)
+        # Do not enumerate OpenVINO devices during startup. On some Windows 10
+        # machines loading the GPU plugin from Core() crashes the process
+        # before the UI appears. GPU remains selectable; if it fails to load,
+        # _on_engine_failed falls back to the previous device.
+        self.gpu_available = True
         self.settings.set_gpu_available(self.gpu_available)
-        if not self.gpu_available and str(self.config.get("ov_device", "CPU")).upper() == "GPU":
-            self.config["ov_device"] = "CPU"
-            self.engine.ov_device = "CPU"
         self.settings.set_values(
             self.live_preview_enabled,
             self.auto_paste,
-            self.high_accuracy,
+            self.model_tier,
             self.language,
             auto_punctuation=self.auto_punctuation,
             theme=self.theme,
@@ -180,6 +197,7 @@ class VoxaApp(QObject):
             on_open_logs=lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(LOG_DIR))),
             on_show=self._show_pill_from_tray,
             on_settings=self._open_settings_from_tray,
+            on_check_update=self._check_updates,
             on_toggle_hotkey=self._on_toggle_hotkey,
             on_toggle_autostart=self._on_toggle_autostart,
             autostart_enabled=is_autostart_enabled(),
@@ -210,6 +228,7 @@ class VoxaApp(QObject):
         self.pause_started = 0.0
         self.last_elapsed = 0.0
         self.toast_token = 0
+        self._update_busy = False
 
         self._tick = QTimer(self)
         self._tick.setInterval(100)
@@ -234,6 +253,7 @@ class VoxaApp(QObject):
             compute_type=self.config.get("compute_type", "int8"),
             preview_model_dir=self.config.get("preview_model_dir"),
             fast_model_dir=self.config.get("fast_model_dir"),
+            model_tier=self.model_tier,
             use_high_accuracy=self.high_accuracy,
             ov_model_dir=self.config.get("ov_model_dir"),
             ov_preview_model_dir=self.config.get("ov_preview_model_dir"),
@@ -246,8 +266,14 @@ class VoxaApp(QObject):
 
     # ---- startup --------------------------------------------------------
     def start(self) -> None:
+        log.info("系统: %s", platform.platform())
+        try:
+            avx2 = bool(ctypes.windll.kernel32.IsProcessorFeaturePresent(40))
+        except Exception:
+            avx2 = False
+        log.info("CPU AVX2=%s", avx2)
         log.info(
-            "Voxa 启动，OpenVINO=%s (%s)，OV 高精度=%s，OV 快速=%s，OV 预览=%s，语言=%s",
+            "Voxa 启动，OpenVINO=%s (%s)，OV 最大=%s，OV 均衡=%s，OV 最小/预览=%s，语言=%s",
             self.config.get("use_openvino"),
             self.config.get("ov_device"),
             self.config.get("ov_model_dir"),
@@ -274,6 +300,12 @@ class VoxaApp(QObject):
             self.app.quit()
             return
 
+        if self.safe:
+            self.state = "ready"
+            self.tray.set_status("安全模式 · 模型未加载")
+            log.info("安全模式：跳过模型加载")
+            QTimer.singleShot(150, self._open_settings_from_tray)
+            return
         self.tray.set_status("正在加载模型…")
         threading.Thread(target=self._load_model, name="ModelLoader", daemon=True).start()
 
@@ -760,7 +792,7 @@ class VoxaApp(QObject):
         self.settings.set_values(
             self.live_preview_enabled,
             self.auto_paste,
-            self.high_accuracy,
+            self.model_tier,
             self.language,
             auto_punctuation=self.auto_punctuation,
             theme=self.theme,
@@ -783,6 +815,87 @@ class VoxaApp(QObject):
             self.pill_visible = True
             self.hotkey.set_escape_armed(True)
 
+    def _restore_tray_status(self) -> None:
+        if self.state == "recording":
+            self.tray.set_status("正在录音…")
+        elif self.state == "paused":
+            self.tray.set_status("已暂停 · 点击麦克风继续")
+        elif self.state == "finishing":
+            self.tray.set_status("正在生成文字…")
+        elif self.state == "loading":
+            self.tray.set_status("正在加载模型…")
+        elif self.state == "error":
+            self.tray.set_status("模型加载失败")
+        else:
+            self.tray.set_status(f"就绪 · 按 {self.hotkey_label} 说话")
+
+    def _check_updates(self, *_args) -> None:
+        if self._update_busy:
+            return
+        self._update_busy = True
+        self.tray.set_status("正在检查更新…")
+        threading.Thread(target=self._run_update_check, name="UpdateCheck", daemon=True).start()
+
+    def _run_update_check(self) -> None:
+        try:
+            info = check_latest()
+            self.bridge.update_ready.emit(info)
+        except Exception as exc:
+            log.exception("检查更新失败")
+            self.bridge.update_failed.emit(str(exc) or type(exc).__name__)
+
+    def _update_parent(self):
+        return self.settings if self.settings_visible else None
+
+    def _on_update_ready(self, info: ReleaseInfo) -> None:
+        self._update_busy = False
+        self._restore_tray_status()
+        if is_newer(info.version, VOXA_VERSION):
+            box = QMessageBox(self._update_parent())
+            box.setWindowTitle("发现新版本")
+            box.setIcon(QMessageBox.Information)
+            box.setText(f"发现新版本 V{info.version}")
+            notes = (info.notes or "").strip()
+            if len(notes) > 900:
+                notes = notes[:900].rstrip() + "…"
+            box.setInformativeText(
+                f"当前版本：v{VOXA_VERSION}\n最新版本：v{info.version}\n\n"
+                + (notes or "打开 GitHub Releases 查看详情。")
+            )
+            download_btn = box.addButton("打开下载页", QMessageBox.ActionRole)
+            box.addButton("稍后", QMessageBox.RejectRole)
+            box.exec()
+            if box.clickedButton() is download_btn:
+                url = info.asset_url or info.page_url or RELEASES_URL
+                QDesktopServices.openUrl(QUrl(url))
+            log.info("发现新版本 %s（当前 %s）", info.version, VOXA_VERSION)
+            return
+
+        QMessageBox.information(
+            self._update_parent(),
+            "检查更新",
+            f"当前已是最新版本 v{VOXA_VERSION}。",
+        )
+        log.info("检查更新：已是最新版本 %s", VOXA_VERSION)
+
+    def _on_update_failed(self, message: str) -> None:
+        self._update_busy = False
+        self._restore_tray_status()
+        text = message.strip()
+        if len(text) > 400:
+            text = text[:400].rstrip() + "…"
+        box = QMessageBox(self._update_parent())
+        box.setWindowTitle("检查更新失败")
+        box.setIcon(QMessageBox.Warning)
+        box.setText("暂时无法检查更新")
+        box.setInformativeText(text + "\n\n可以手动打开 GitHub Releases 查看最新版本。")
+        open_btn = box.addButton("打开 GitHub Releases", QMessageBox.ActionRole)
+        box.addButton("关闭", QMessageBox.RejectRole)
+        box.exec()
+        if box.clickedButton() is open_btn:
+            QDesktopServices.openUrl(QUrl(RELEASES_URL))
+        log.warning("检查更新失败: %s", message)
+
     def _on_live_preview_toggled(self, enabled: bool) -> None:
         self.live_preview_enabled = enabled
         self.config["live_preview"] = enabled
@@ -798,12 +911,25 @@ class VoxaApp(QObject):
         save_config(self.config)
         log.info("自动粘贴: %s", enabled)
 
-    def _on_high_accuracy_toggled(self, enabled: bool) -> None:
-        self.high_accuracy = enabled
-        self.config["high_accuracy"] = enabled
-        self.engine.use_high_accuracy = enabled
+    def _on_model_tier_selected(self, tier: str) -> None:
+        tier = str(tier).lower()
+        if tier not in ("tiny", "small", "large"):
+            return
+        if tier == "large" and not self.high_model_available:
+            return
+        self.model_tier = tier
+        self.high_accuracy = tier == "large"
+        self.config["model_tier"] = tier
+        self.config["high_accuracy"] = self.high_accuracy
+        self.engine.model_tier = tier
+        self.engine.use_high_accuracy = self.high_accuracy
         save_config(self.config)
-        log.info("高精度最终模型: %s", enabled)
+        names = {"tiny": "Tiny", "small": "Small", "large": "Large Turbo"}
+        self.settings.footer_label.setText(f"最终模型：Whisper {names[tier]}")
+        QTimer.singleShot(
+            1600, lambda: self.settings.footer_label.setText("设置自动保存")
+        )
+        log.info("最终模型档位: %s", tier)
 
     def _on_language_selected(self, language: str) -> None:
         self.language = language
@@ -855,7 +981,7 @@ class VoxaApp(QObject):
             self.settings.set_values(
                 self.live_preview_enabled,
                 self.auto_paste,
-                self.high_accuracy,
+                self.model_tier,
                 self.language,
                 auto_punctuation=self.auto_punctuation,
                 theme=self.theme,
@@ -906,11 +1032,14 @@ class VoxaApp(QObject):
         self.high_model_available = bool(engine.ov_model_dir) and Path(
             engine.ov_model_dir
         ).exists()
-        if not self.high_model_available:
+        if not self.high_model_available and self.model_tier == "large":
+            self.model_tier = "small"
             self.high_accuracy = False
+            self.config["model_tier"] = "small"
             self.config["high_accuracy"] = False
+            engine.model_tier = "small"
             engine.use_high_accuracy = False
-        self.settings.set_high_available(self.high_model_available)
+        self.settings.set_model_available(self.high_model_available)
         self.settings.set_gpu_available(self.gpu_available)
         self.state = "ready"
         self.tray.set_status(f"就绪 · 按 {self.hotkey_label} 说话")
@@ -930,7 +1059,7 @@ class VoxaApp(QObject):
         self.settings.set_values(
             self.live_preview_enabled,
             self.auto_paste,
-            self.high_accuracy,
+            self.model_tier,
             self.language,
             auto_punctuation=self.auto_punctuation,
             theme=self.theme,
@@ -1112,10 +1241,13 @@ def main() -> int:
     silent = "--silent" in sys.argv
     if silent:
         sys.argv.remove("--silent")
+    crash_file = None
     try:
-        if os.environ.get("VOICEIN_DEBUG_STACKS"):
-            import faulthandler
+        import faulthandler
 
+        crash_file = open(LOG_DIR / "crash.log", "a", encoding="utf-8")  # noqa: SIM115
+        faulthandler.enable(file=crash_file, all_threads=True)
+        if os.environ.get("VOICEIN_DEBUG_STACKS"):
             trace_file = open(LOG_DIR / "traceback.log", "a", encoding="utf-8")  # noqa: SIM115
             faulthandler.dump_traceback_later(30, repeat=True, file=trace_file)
     except Exception:
@@ -1128,6 +1260,9 @@ def main() -> int:
     except Exception:
         pass
 
+    safe = "--safe" in sys.argv
+    if safe:
+        sys.argv.remove("--safe")
     app = QApplication(sys.argv)
     app.setApplicationName("Voxa")
     app.setQuitOnLastWindowClosed(False)
@@ -1159,7 +1294,7 @@ def main() -> int:
 
     sys.excepthook = excepthook
 
-    voxa = VoxaApp(app, config, silent=silent, activation_event=activation_event)
+    voxa = VoxaApp(app, config, silent=silent, safe=safe, activation_event=activation_event)
     voxa.start()
     return app.exec()
 

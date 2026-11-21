@@ -6,11 +6,11 @@
 
 ### OpenVINO int4 模型（默认使用）
 
-- 预览：`OpenVINO/whisper-base-int4-ov` → `models/whisper-base-int4-ov`
-- 快速最终：`OpenVINO/whisper-small-int4-ov` → `models/whisper-small-int4-ov`
-- 高精度：`OpenVINO/whisper-large-v3-turbo-int4-ov` → `models/whisper-large-v3-turbo-int4-ov`
+- 最小 / 实时预览：`OpenVINO/whisper-tiny-int4-ov` → `models/whisper-tiny-int4-ov`
+- 均衡最终：`OpenVINO/whisper-small-int4-ov` → `models/whisper-small-int4-ov`
+- 最大最终：`OpenVINO/whisper-large-v3-turbo-int4-ov` → `models/whisper-large-v3-turbo-int4-ov`
 - 上游：OpenAI Whisper（MIT）；OpenVINO 转换/INT4 压缩工具为 Apache-2.0
-- 说明：源码仓库不包含权重；GitHub Releases 的安装包会附带对应模型，许可见上。
+- 说明：三档均为多语言 Whisper；源码仓库不包含权重；GitHub Releases 的安装包会附带对应模型，许可见上。
 
 ### faster-whisper 回退：最终模型
 
@@ -44,7 +44,6 @@
 - NVIDIA Nemotron 3.5 ASR Streaming 0.6B
 - 许可：OpenMDW 1.1 — <https://openmdw.ai/license/1-1/>
 - 本地路径：`models/nemotron-asr`
-emotron-asr`
 - 当前代码不再加载；保留仅用于回滚/对比。
 
 ## Python 依赖

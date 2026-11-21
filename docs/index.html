@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title>Voxa — 开口即成文字 · 本地语音输入</title>
-<meta name="description" content="Voxa 是 Windows 11 的本地语音输入工具：按 Win+H 说话，文字实时写入当前输入框。完全离线，音频不上传。">
+<meta name="description" content="Voxa 是 Windows 10/11 的本地语音输入工具：按 Win+H 说话，文字实时写入当前输入框。完全离线，音频不上传。">
 <style>
   :root {
     --bg: #061014;
@@ -433,7 +433,7 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <div class="eyebrow"><span class="dot"></span>Windows 11 · 100% 本地运行</div>
+        <div class="eyebrow"><span class="dot"></span>Windows 10/11 · 100% 本地运行</div>
         <h1>开口，<em>即成文字。</em></h1>
         <p class="lead">
           按一下 <b>Win+H</b>，说话。文字实时出现在光标所在位置；停下后自动校正、自动上屏，浮窗保持打开。
@@ -545,7 +545,7 @@
         <article class="card step reveal delay-2">
           <div class="num">03 / PREVIEW</div>
           <h3>实时预览</h3>
-          <p>每约 800 ms 把当前整段音频送进 <code>whisper-base-int4-ov</code>，得到稳定的预览文本。</p>
+          <p>每约 800 ms 把当前整段音频送进 <code>whisper-tiny-int4-ov</code>，得到稳定的预览文本。</p>
         </article>
         <article class="card step reveal delay-3">
           <div class="num">04 / INSERT</div>
@@ -555,7 +555,7 @@
         <article class="card step reveal delay-4">
           <div class="num">05 / FINAL</div>
           <h3>最终校正</h3>
-          <p>静音约 1.8 秒后，用 <code>whisper-small</code>（或 large）重跑最终结果，只修正差异；焦点丢失时回退剪贴板。</p>
+          <p>静音约 1.8 秒后，用所选档位（Tiny / Small / Large Turbo）重跑最终结果，只修正差异；焦点丢失时回退剪贴板。</p>
         </article>
       </div>
 
@@ -572,38 +572,38 @@
       <div class="section-head reveal">
         <div class="kicker">03 · 用了什么模型</div>
         <h2>三档 Whisper，<br>按场景自由选择。</h2>
-        <p>全部是 OpenAI Whisper 的 OpenVINO int4 版本，在本地 CPU 上跑。默认只加载 base + small；large 按需开启。</p>
+        <p>全部是 OpenAI Whisper 的多语言 OpenVINO int4 版本，在本地 CPU 上跑。默认加载 Tiny + Small；Large Turbo 按需开启。</p>
       </div>
 
       <div class="model-grid">
         <article class="card model reveal">
-          <span class="tag">PREVIEW</span>
-          <h3>Whisper base</h3>
-          <div class="sub">whisper-base-int4-ov</div>
+          <span class="tag">TINY · 最小</span>
+          <h3>Whisper Tiny</h3>
+          <div class="sub">whisper-tiny-int4-ov</div>
           <ul>
-            <li><span>体积</span><b>约 64 MB</b></li>
-            <li><span>职责</span><b>实时预览</b></li>
-            <li><span>速度</span><b>约 0.8–1.5 s</b></li>
+            <li><span>体积</span><b>约 40 MB</b></li>
+            <li><span>职责</span><b>实时预览 / 低配最终</b></li>
+            <li><span>速度</span><b>最快</b></li>
           </ul>
         </article>
         <article class="card model highlight reveal delay-1">
-          <span class="tag">DEFAULT FINAL</span>
-          <h3>Whisper small</h3>
+          <span class="tag">SMALL · 均衡</span>
+          <h3>Whisper Small</h3>
           <div class="sub">whisper-small-int4-ov</div>
           <ul>
-            <li><span>体积</span><b>约 162 MB</b></li>
+            <li><span>体积</span><b>约 155 MB</b></li>
             <li><span>职责</span><b>默认最终校正</b></li>
             <li><span>速度</span><b>约 3–5 s</b></li>
           </ul>
         </article>
         <article class="card model reveal delay-2">
-          <span class="tag">HIGH ACCURACY</span>
+          <span class="tag">LARGE · 最大</span>
           <h3>Whisper large-v3-turbo</h3>
           <div class="sub">whisper-large-v3-turbo-int4-ov</div>
           <ul>
-            <li><span>体积</span><b>约 478 MB</b></li>
-            <li><span>职责</span><b>高精度模式</b></li>
-            <li><span>使用</span><b>高精度按需开启</b></li>
+            <li><span>体积</span><b>约 456 MB</b></li>
+            <li><span>职责</span><b>最高精度最终结果</b></li>
+            <li><span>使用</span><b>详细设置按需选择</b></li>
           </ul>
         </article>
       </div>
@@ -689,24 +689,24 @@
         <div class="card download-main reveal">
           <div class="kicker">06 · 下载</div>
           <h2>把话，直接说进输入框。</h2>
-          <p>Windows 11 · x64 · 安装包已包含 OpenVINO 运行时、base / small 模型和默认勾选的 large 模型。</p>
+          <p>Windows 10/11 · x64 · 安装包已包含 OpenVINO 运行时、base / small 模型和默认勾选的 large 模型。</p>
           <div class="actions">
             <!-- GitHub Releases -->
             <a class="btn btn-primary" href="https://github.com/username-xusir/AI-Voice-Input/releases/latest" rel="noopener">打开 GitHub Releases</a>
             <a class="btn btn-ghost" href="#how">再看一遍原理</a>
           </div>
           <div class="release-line">
-            <span>Voxa-Setup-0.7.2.exe</span>
+            <span>Voxa-Setup-0.7.5.exe</span>
             <span>·</span>
             <span>671 MB</span>
             <span>·</span>
-            <span>SHA256 <code>386a169b…bb502a</code></span>
+            <span>SHA256 <code>1103c661…e906ae2</code></span>
           </div>
         </div>
 
         <div class="card steps reveal delay-1">
           <h3>三步开始</h3>
-          <div class="step-row"><span class="k">01</span><p>下载并运行 <b>Voxa-Setup-0.7.2.exe</b>。安装到当前用户目录，不需要管理员权限。</p></div>
+          <div class="step-row"><span class="k">01</span><p>下载并运行 <b>Voxa-Setup-0.7.5.exe</b>。安装到当前用户目录，不需要管理员权限。</p></div>
           <div class="step-row"><span class="k">02</span><p>安装器会自动处理旧版、写入开机自启动，并在托盘静默运行。</p></div>
           <div class="step-row"><span class="k">03</span><p>在任意输入框按 <b>Win+H</b> 说话；停下约 1.8 秒，文字自动上屏，浮窗保持打开。</p></div>
           <div class="note" style="background:rgba(30,200,216,.06); border-color:rgba(30,200,216,.16); color:#9adce2;">浮窗里的“设置”是快速设置；桌面 Voxa 图标 / 托盘左键打开详细设置。</div>
@@ -719,7 +719,7 @@
 <footer>
   <div class="wrap foot">
     <div>
-      <p><b style="color:var(--text); letter-spacing:2px;">VOXA</b> · 本地语音输入 · Windows 11</p>
+      <p><b style="color:var(--text); letter-spacing:2px;">VOXA</b> · 本地语音输入 · Windows 10/11</p>
       <p>代码 MIT · Whisper 模型 MIT · OpenVINO Apache-2.0 · 页面无追踪、无外部字体。</p>
     </div>
     <div class="foot-links">

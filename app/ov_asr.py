@@ -10,16 +10,32 @@ import numpy as np
 
 log = logging.getLogger("voxa.openvino")
 
-try:
-    import openvino_genai
-except Exception:  # pragma: no cover - optional dependency
-    openvino_genai = None
-
+_openvino_genai = None
+_openvino_tried = False
 _VAD_OPTIONS = None
 
 
+def _genai():
+    """Import OpenVINO only when a model is actually loaded.
+
+    Keeping this lazy lets the UI start (and log) even if the native
+    runtime is incompatible with an older Windows 10 driver.
+    """
+    global _openvino_genai, _openvino_tried
+    if not _openvino_tried:
+        _openvino_tried = True
+        try:
+            import openvino_genai as module
+
+            _openvino_genai = module
+        except Exception:
+            log.exception("OpenVINO GenAI 导入失败")
+            _openvino_genai = None
+    return _openvino_genai
+
+
 def available() -> bool:
-    return openvino_genai is not None
+    return _genai() is not None
 
 
 def available_devices() -> list[str]:
@@ -55,8 +71,9 @@ def has_speech(audio: np.ndarray) -> bool:
 
 class OVPipeline:
     def __init__(self, model_dir: str, device: str = "CPU") -> None:
-        if openvino_genai is None:
-            raise RuntimeError("openvino-genai 未安装")
+        genai = _genai()
+        if genai is None:
+            raise RuntimeError("openvino-genai 不可用")
         path = Path(model_dir)
         if not path.exists():
             raise FileNotFoundError(f"OpenVINO 模型目录不存在: {model_dir}")
@@ -70,7 +87,7 @@ class OVPipeline:
             cache = Path(__file__).resolve().parents[1] / "ov_cache"
             cache.mkdir(exist_ok=True)
             kwargs["CACHE_DIR"] = str(cache)
-        self.pipe = openvino_genai.ASRPipeline(self.model_dir, device, **kwargs)
+        self.pipe = genai.ASRPipeline(self.model_dir, device, **kwargs)
         self.load_seconds = time.perf_counter() - started
         log.info("OpenVINO 模型就绪 (%s, %.1fs): %s", device, self.load_seconds, path.name)
 

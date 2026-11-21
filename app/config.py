@@ -33,7 +33,8 @@ if FROZEN:
         "ov_device": "CPU",
         "ov_model_dir": str(MODEL_ROOT / "whisper-large-v3-turbo-int4-ov"),
         "ov_fast_model_dir": str(MODEL_ROOT / "whisper-small-int4-ov"),
-        "ov_preview_model_dir": str(MODEL_ROOT / "whisper-base-int4-ov"),
+        "ov_preview_model_dir": str(MODEL_ROOT / "whisper-tiny-int4-ov"),
+        "model_tier": "small",
         "high_accuracy": False,
         "language": "zh",
         "hotkey": "win+h",
@@ -68,7 +69,8 @@ else:
         "ov_device": "CPU",
         "ov_model_dir": str(MODEL_ROOT / "whisper-large-v3-turbo-int4-ov"),
         "ov_fast_model_dir": str(MODEL_ROOT / "whisper-small-int4-ov"),
-        "ov_preview_model_dir": str(MODEL_ROOT / "whisper-base-int4-ov"),
+        "ov_preview_model_dir": str(MODEL_ROOT / "whisper-tiny-int4-ov"),
+        "model_tier": "small",
         "high_accuracy": False,
         "language": "zh",
         "hotkey": "win+h",
@@ -122,14 +124,21 @@ def _normalize_bundled_models(cfg: dict[str, Any]) -> None:
     known = {
         "whisper-large-v3-turbo-int4-ov",
         "whisper-small-int4-ov",
+        "whisper-tiny-int4-ov",
         "whisper-base-int4-ov",
     }
-    for key in ("ov_model_dir", "ov_fast_model_dir", "ov_preview_model_dir"):
+    # These are the only supported bundled roles.  Upgrade old configs that
+    # still point at the removed base preview model.
+    bundled_roles = {
+        "ov_model_dir": "whisper-large-v3-turbo-int4-ov",
+        "ov_fast_model_dir": "whisper-small-int4-ov",
+        "ov_preview_model_dir": "whisper-tiny-int4-ov",
+    }
+    for key, bundled_name in bundled_roles.items():
         current = str(cfg.get(key) or "")
         name = Path(current).name
-        bundled = MODEL_ROOT / name
-        if name in known:
-            cfg[key] = str(bundled)
+        if not current or name in known:
+            cfg[key] = str(MODEL_ROOT / bundled_name)
 
 
 def load_config() -> dict[str, Any]:
@@ -137,7 +146,12 @@ def load_config() -> dict[str, Any]:
     cfg = dict(DEFAULTS)
     if CONFIG_PATH.exists():
         try:
-            cfg.update(json.loads(CONFIG_PATH.read_text(encoding="utf-8")))
+            loaded = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            cfg.update(loaded)
+            # 0.7.4 used a boolean for the large final model.  Migrate it to
+            # the three-tier model selector on first load.
+            if "model_tier" not in loaded:
+                cfg["model_tier"] = "large" if loaded.get("high_accuracy") else "small"
         except Exception:
             logging.getLogger("voxa").exception("config.json 读取失败，使用默认配置")
     _normalize_bundled_models(cfg)
