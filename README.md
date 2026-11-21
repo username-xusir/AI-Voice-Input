@@ -1,11 +1,11 @@
 # Voxa · 本地语音输入
 
-Voxa 是 Windows 11 的本地语音输入浮窗。它接管 **Win+H**：按一下开始，边说边输入，停止说话后自动生成并上屏，浮窗保持打开。声音不上传，完全离线。
+Voxa 是 Windows 10/11 的本地语音输入浮窗。它接管 **Win+H**：按一下开始，边说边输入，停止说话后自动生成并上屏，浮窗保持打开。声音不上传，完全离线。
 
-- **默认后端**：OpenVINO GenAI int4 Whisper
-- **实时预览**：`whisper-base-int4-ov`（约 0.8–1.5 秒一次）
-- **最终校正**：`whisper-small-int4-ov`（约 3–5 秒）
-- **高精度**：`whisper-large-v3-turbo-int4-ov`（默认打包，CPU 约 10–20 秒）
+- **默认后端**：OpenVINO GenAI int4 Whisper，三档模型全部支持多语言
+- **实时预览**：`whisper-tiny-int4-ov`（约 40 MB，最小最快）
+- **最终校正**：详细设置里可选 `Tiny / Small / Large`；默认 `whisper-small-int4-ov`（约 155 MB，均衡）
+- **最大模型**：`whisper-large-v3-turbo-int4-ov`（约 456 MB，默认打包，CPU 约 10–20 秒）
 - **回退**：OpenVINO 不可用时自动使用 faster-whisper / CTranslate2
 
 介绍页：[`docs/index.html`](docs/index.html)（打开后是一个单文件落地页）。
@@ -19,8 +19,9 @@ Voxa 是 Windows 11 的本地语音输入浮窗。它接管 **Win+H**：按一�
 - **主题**：默认青色；浅色是独立的白/灰配色，深色是独立的炭黑配色，按钮、开关、图标都随主题整套切换，不混用青色。
 - **自动标点**：可开关。开：保留 Whisper 的逗号/句号；关：去掉标点。
 - **计算设备**：设置里可选 CPU / GPU；切换后自动重载模型，失败自动保留原设备。
+- **检查更新**：详细设置页或托盘菜单可读取 GitHub Releases 最新版本；只打开下载页，不自动下载安装。
 - **两类设置**：浮窗上的“设置”打开快速设置；桌面 Voxa 图标、托盘左键/双击、托盘“详细设置”、再次启动打开详细设置，且不会弹出语音浮窗。
-- **其他**：实时预览、自动上屏、识别语言、高精度模型、开机自启动、暂停热键。
+- **其他**：实时预览、自动上屏、识别语言、最终模型档位、开机自启动、暂停热键。
 - **托盘静默运行**：默认开机自启动，只留托盘图标。
 
 > 在 Intel Iris Xe 核显上实测 OpenVINO GPU 比 CPU 慢，因此默认 CPU；设置里保留 GPU 选项，方便换到独显机器使用。
@@ -37,11 +38,11 @@ Voxa 是 Windows 11 的本地语音输入浮窗。它接管 **Win+H**：按一�
 
 ## 安装包（推荐）
 
-`Voxa-Setup-0.7.2.exe`（从 GitHub Releases 下载）
+`Voxa-Setup-0.7.5.exe`（从 [GitHub Releases](https://github.com/username-xusir/AI-Voice-Input/releases) 下载）
 
 - 安装到当前用户目录 `%LOCALAPPDATA%\Programs\Voxa`，不需要管理员权限。
-- 自带 OpenVINO 运行时、Whisper base 预览模型、Whisper small 最终模型。
-- 组件页包含 `OpenAI Whisper large-v3-turbo 高精度模型`，**默认勾选并安装**；性能弱的电脑可以在组件页取消。
+- 自带 OpenVINO 运行时、Whisper Tiny 最小模型、Whisper Small 均衡模型。
+- 组件页包含 `OpenAI Whisper large-v3-turbo 最大模型`，**默认勾选并安装**；性能弱的电脑可以在组件页取消。
 - 安装时自动停止并移除旧版 VoiceIn，清理旧版自启动/快捷方式；旧配置会迁移到 `%LOCALAPPDATA%\Voxa`。
 - 默认开机自启动，后台静默运行，只留托盘。
 - 卸载：Windows 设置 → 应用 → **Voxa**，或开始菜单“卸载 Voxa”。
@@ -68,7 +69,7 @@ setup.bat
 | 自动标点 | 开：保留识别出的标点；关：去掉标点 |
 | 实时预览 | 边说边把预览文字输入当前输入框 |
 | 自动上屏 | 结束后用最终结果校正预览文字；关闭则只复制最终文字到剪贴板 |
-| 高精度模型 | 使用 large-v3-turbo；更准但更慢，未安装时不可用 |
+| 最终模型 | `最小`：Tiny，最快；`均衡`：Small，默认；`最大`：large-v3-turbo，最准但最慢。未安装 large 时“最大”不可用 |
 | 计算设备 | `CPU` 或 `GPU`；切换会重新加载模型 |
 | 识别语言 | 中文 / EN / 自动 |
 | 停止说话自动结束 | 是否启用静音检测自动结束 |
@@ -76,7 +77,7 @@ setup.bat
 | 主题 | 青色（原配色）/ 浅色（白灰）/ 深色（炭黑） |
 | 开机自启动 | 写入 HKCU Run，无管理员权限 |
 
-设置会自动保存到 `config.json`，不需要“保存”按钮。设置页顶部应显示 `详细设置 · 本地语音输入 · v0.7.2`；如果看到 166×244 的旧小卡片，说明打开的是旧版 VoiceIn。
+设置会自动保存到 `config.json`，不需要“保存”按钮。设置页顶部应显示 `详细设置 · 本地语音输入 · v0.7.5`；如果看到 166×244 的旧小卡片，说明打开的是旧版 VoiceIn。
 
 ## 常用配置字段
 
@@ -101,15 +102,35 @@ setup.bat
 
 ## 模型
 
-默认使用 OpenVINO int4 转换版：
+默认使用 OpenVINO int4 转换版，三档都是多语言 Whisper：
 
-- 预览：`OpenVINO/whisper-base-int4-ov`（约 64 MB）
-- 最终：`OpenVINO/whisper-small-int4-ov`（约 162 MB）
-- 高精度：`OpenVINO/whisper-large-v3-turbo-int4-ov`（约 478 MB）
+- 最小：`OpenVINO/whisper-tiny-int4-ov`（约 40 MB，实时预览；也可作为最终模型）
+- 均衡：`OpenVINO/whisper-small-int4-ov`（约 155 MB，默认最终模型）
+- 最大：`OpenVINO/whisper-large-v3-turbo-int4-ov`（约 456 MB，高精度可选）
 
 faster-whisper 模型仅作为回退，不再参与默认推理。
 
 源码版默认从项目根 `models/` 读取模型（目录名见上）；也可以用环境变量 `VOXA_MODEL_ROOT` 指向其他模型根目录。安装版模型在安装目录的 `models/` 下。
+
+## 启动闪退排查
+
+如果安装后启动闪退，先退出托盘里的 Voxa，再在命令行运行：
+
+```bat
+"%LOCALAPPDATA%\Programs\Voxa\Voxa.exe" --safe
+```
+
+安全模式会跳过 OpenVINO 模型加载，只打开详细设置：
+
+- 安全模式能打开：问题在模型/OpenVINO 运行时或显卡驱动。
+- 安全模式也打不开：问题在 Qt/系统运行库。
+
+日志位置：
+
+- `%LOCALAPPDATA%\Voxa\logspp.log`
+- `%LOCALAPPDATA%\Voxa\logs\crash.log`
+
+0.7.4 起已把 OpenVINO 改为按需导入，并移除启动阶段的 GPU 设备枚举，避免部分 Windows 10 驱动在启动时原生崩溃。
 
 ## 调试
 
@@ -124,7 +145,7 @@ faster-whisper 模型仅作为回退，不再参与默认推理。
 - **实时输入依赖光标**：录音期间不要移动光标或改选区，否则退格/补字会作用到新位置。
 - **切换应用会暂停实时输入**：目标不在前台时不再抢焦点；结束时最终文字会复制到剪贴板。
 - **自动结束会被停顿触发**：说完后约 1.8 秒没声音就生成；说话中间长停顿可能提前结束，可在设置里调大静音判定。
-- **高精度较慢**：large 在普通 CPU 上一句约 10–20 秒，默认关闭。
+- **最大模型较慢**：large-v3-turbo 在普通 CPU 上一句约 10–20 秒，默认使用 Small；追求速度可选 Tiny。
 - **GPU 不一定更快**：Intel Iris Xe 核显实测比 CPU 慢；独显机器可自行切换。
 - **全屏独占应用**：可能盖住置顶浮窗，退出全屏即可。
 - 低权限钩子收不到管理员应用里的按键；需要时以管理员身份启动。

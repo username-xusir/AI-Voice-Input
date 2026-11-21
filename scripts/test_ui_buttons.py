@@ -47,7 +47,7 @@ def main() -> int:
     settings.set_values(
         True,
         True,
-        True,
+        "small",
         "zh",
         auto_punctuation=True,
         theme="teal",
@@ -59,32 +59,35 @@ def main() -> int:
     settings.show()
     app.processEvents()
     live_values = []
-    high_values = []
+    tier_values = []
     languages = []
     punct_values = []
     themes = []
     silences = []
     auto_stops = []
+    update_clicks = []
     settings.live_preview_toggled.connect(live_values.append)
-    settings.high_accuracy_toggled.connect(high_values.append)
+    settings.model_tier_selected.connect(tier_values.append)
     settings.language_selected.connect(languages.append)
     settings.auto_punctuation_toggled.connect(punct_values.append)
     settings.theme_selected.connect(themes.append)
     settings.silence_changed.connect(silences.append)
     settings.auto_stop_toggled.connect(auto_stops.append)
+    settings.check_update_clicked.connect(lambda: update_clicks.append(True))
 
     QTest.mouseClick(settings.live_switch, Qt.LeftButton)
-    QTest.mouseClick(settings.high_switch, Qt.LeftButton)
+    QTest.mouseClick(settings.tier_buttons["tiny"], Qt.LeftButton)
     QTest.mouseClick(settings.lang_buttons["en"], Qt.LeftButton)
     QTest.mouseClick(settings.auto_punct_switch, Qt.LeftButton)
     QTest.mouseClick(settings.theme_buttons["light"], Qt.LeftButton)
     settings.silence_slider.setValue(2600)
     QTest.qWait(320)
     QTest.mouseClick(settings.auto_stop_switch, Qt.LeftButton)
+    QTest.mouseClick(settings.update_btn, Qt.LeftButton)
     app.processEvents()
     print(
         "live", live_values,
-        "high", high_values,
+        "tier", tier_values,
         "langs", languages,
         "punct", punct_values,
         "themes", themes,
@@ -112,12 +115,13 @@ def main() -> int:
         events == {"mic": 1, "settings": 1, "close": 1}
         and moved
         and live_values == [False]
-        and high_values == [False]
+        and tier_values == ["tiny"]
         and languages == ["en"]
         and punct_values == [False]
         and themes == ["light"]
         and silences == [2600]
         and auto_stops == [False]
+        and update_clicks == [True]
         and settings.silence_slider.isEnabled() is False
         and quick_punct == [False]
         and quick_themes == ["dark"]

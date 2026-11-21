@@ -6,7 +6,7 @@
 
 !define APP_NAME "Voxa"
 !define APP_EXE "Voxa.exe"
-!define APP_VERSION "0.7.2"
+!define APP_VERSION "0.7.5"
 !define APP_PUBLISHER "Voxa"
 !define APP_ID "Voxa"
 !define SEC_CORE_ID 0
@@ -23,7 +23,7 @@ BrandingText "Voxa · 本地语音输入"
 Icon "app.ico"
 UninstallIcon "app.ico"
 
-VIProductVersion "0.7.2.0"
+VIProductVersion "0.7.5.0"
 VIAddVersionKey "ProductName" "${APP_NAME}"
 VIAddVersionKey "CompanyName" "${APP_PUBLISHER}"
 VIAddVersionKey "FileDescription" "Voxa 本地语音输入安装程序"
@@ -35,7 +35,7 @@ VIAddVersionKey "LegalCopyright" "MIT License"
 !define MUI_ICON "app.ico"
 !define MUI_UNICON "app.ico"
 !define MUI_WELCOMEPAGE_TITLE "安装 Voxa"
-!define MUI_WELCOMEPAGE_TEXT "Voxa 是一个完全本地的语音输入工具，声音不会离开这台电脑。$\r$\n$\r$\n安装后 Voxa 接管 Win+H：按一下开始，停止说话约 1.8 秒自动输入，浮窗保持打开。系统自带语音输入不会弹出。$\r$\n$\r$\n基础安装包含 OpenVINO 运行时、base 预览模型、small 最终模型和 OpenAI large-v3-turbo 高精度模型（默认勾选，性能弱的电脑可取消）。"
+!define MUI_WELCOMEPAGE_TEXT "Voxa 是一个完全本地的语音输入工具，声音不会离开这台电脑。$\r$\n$\r$\n安装后 Voxa 接管 Win+H：按一下开始，停止说话约 1.8 秒自动输入，浮窗保持打开。系统自带语音输入不会弹出。$\r$\n$\r$\n基础安装包含 OpenVINO 运行时、Whisper Tiny 最小模型和 Whisper Small 均衡模型；另有 large-v3-turbo 最大模型可选（默认勾选，性能弱的电脑可取消）。三档都是多语言模型。"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT "启动 Voxa（Win+H）"
 !define MUI_FINISHPAGE_TEXT "安装完成。$\r$\n$\r$\nVoxa 已在后台运行，按 Win+H 开始说话；停止说话约 1.8 秒自动生成并上屏，浮窗保持打开。$\r$\n$\r$\n点击托盘图标可打开详细设置：主题、CPU/GPU、静音时长、自动标点等；浮窗“设置”打开快速设置。"
@@ -65,6 +65,9 @@ Section "Voxa 主程序与基础模型（必需）" SEC_CORE
   ; cannot take over.
   nsExec::ExecToLog 'taskkill /IM ${APP_EXE} /F'
   nsExec::ExecToLog 'taskkill /IM VoiceIn.exe /F'
+
+  ; 0.7.5 replaces the old base preview model with Tiny.
+  RMDir /r "$INSTDIR\models\whisper-base-int4-ov"
 
   ; Upgrade from VoiceIn: run its per-user uninstaller, then clean leftovers.
   IfFileExists "$LOCALAPPDATA\Programs\VoiceIn\Uninstall.exe" 0 legacy_done
@@ -107,14 +110,14 @@ Section "Voxa 主程序与基础模型（必需）" SEC_CORE
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "EstimatedSize" 1400000
 SectionEnd
 
-Section "OpenAI Whisper large-v3-turbo 高精度模型（默认包含）" SEC_LARGE
+Section "OpenAI Whisper large-v3-turbo 最大模型（默认包含）" SEC_LARGE
   SetOutPath "$INSTDIR\models\whisper-large-v3-turbo-int4-ov"
   File /r "..\dist\models-large\whisper-large-v3-turbo-int4-ov\*.*"
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_CORE_ID} "必需：Voxa 主程序、OpenVINO 运行时、Whisper base 预览模型、Whisper small 最终模型。默认 CPU 推理，启动约 6 秒。"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_LARGE_ID} "默认勾选：OpenAI Whisper large-v3-turbo int4 高精度模型（约 480 MB）。在普通笔记本 CPU 上一句可能 10–20 秒；不需要可取消。安装后设置里的“高精度模型”开关才可用。"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_CORE_ID} "必需：Voxa 主程序、OpenVINO 运行时、Whisper Tiny 最小模型（约 40 MB）和 Whisper Small 均衡模型（约 155 MB）。三档模型都支持多语言；默认 CPU 推理。"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_LARGE_ID} "默认勾选：OpenAI Whisper large-v3-turbo int4 最大模型（约 456 MB）。普通笔记本 CPU 上一句可能 10–20 秒；不需要可取消。安装后详细设置里的“最终模型 → 最大”才可用。"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 Section "Uninstall"

@@ -41,6 +41,7 @@ def main() -> int:
 
     config = load_config()
     config["high_accuracy"] = False
+    config["model_tier"] = "small"
     config["live_preview"] = True
     config["language"] = "zh"
     ui = app_main.VoxaApp(app, config)

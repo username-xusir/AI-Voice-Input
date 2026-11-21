@@ -1,4 +1,4 @@
-# 构建与发布 — Voxa 0.7.2
+# 构建与发布 — Voxa 0.7.5
 
 ## 依赖
 
@@ -23,7 +23,7 @@ NSIS 使用 `tools/nsis/nsis-3.11/Bin/makensis.exe`（需自行下载，不随�
 基础安装（必需）：
 
 ```text
-dist\Voxa\models\whisper-base-int4-ov\
+dist\Voxa\models\whisper-tiny-int4-ov\
 dist\Voxa\models\whisper-small-int4-ov\
 ```
 
@@ -35,7 +35,7 @@ dist\models-large\whisper-large-v3-turbo-int4-ov\
 
 模型来源：
 
-- `OpenVINO/whisper-base-int4-ov`
+- `OpenVINO/whisper-tiny-int4-ov`
 - `OpenVINO/whisper-small-int4-ov`
 - `OpenVINO/whisper-large-v3-turbo-int4-ov`
 
@@ -45,12 +45,12 @@ dist\models-large\whisper-large-v3-turbo-int4-ov\
 tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 ```
 
-产物：`release\Voxa-Setup-0.7.2.exe`。
+产物：`release\Voxa-Setup-0.7.5.exe`。
 
 安装包特性：
 
 - 安装到 `%LOCALAPPDATA%\Programs\Voxa`，无需管理员权限。
-- 组件页：基础模型必需；OpenAI large 高精度模型默认勾选，性能弱的电脑可取消。
+- 组件页：Tiny + Small 基础模型必需；OpenAI large-v3-turbo 最大模型默认勾选，性能弱的电脑可取消。
 - 检测到旧版 VoiceIn 时，先静默运行旧卸载器，清理旧版 Run 项、开始菜单和桌面快捷方式。
 - 写入 HKCU Run 开机自启动；创建 Voxa 开始菜单/桌面快捷方式。
 - 应用启动时把旧版 `%LOCALAPPDATA%\VoiceIn\config.json` 迁移到 `%LOCALAPPDATA%\Voxa`，并把模型路径规范到新安装目录。
@@ -61,7 +61,7 @@ tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 1. 在临时目录静默安装：
 
    ```bat
-   release\Voxa-Setup-0.7.2.exe /S /D=C:\temp\VoxaTest
+   release\Voxa-Setup-0.7.5.exe /S /D=C:\temp\VoxaTest
    ```
 
 2. 启动 `C:\temp\VoxaTest\Voxa.exe`，等托盘就绪。
@@ -77,14 +77,15 @@ tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 
 上传：
 
-- `release\Voxa-Setup-0.7.2.exe`
+- `release\Voxa-Setup-0.7.5.exe`
 - `release\SHA256SUMS.txt`
 - `release\RELEASE_NOTES.md`
 
 建议 Release 说明包含：
 
-- 版本、Windows 11、CPU 要求。
-- 安装包默认包含基础模型与 large 高精度模型；large 可取消。
+- 版本、Windows 10/11、CPU 要求。
+- 安装包默认包含 Tiny + Small 基础模型与 large-v3-turbo 最大模型；large 可取消。
 - Win+H 接管说明。
-- 0.7.2 浮窗常驻结果、快速/详细设置分离、桌面入口不弹语音浮窗。
+- 0.7.5 三档多语言模型（Tiny / Small / Large Turbo），详细设置可选最终模型。
+- 0.7.4 浮窗常驻结果、快速/详细设置分离、桌面入口不弹语音浮窗。
 - 已知限制：高精度慢、实时输入依赖光标、Iris Xe GPU 更慢。

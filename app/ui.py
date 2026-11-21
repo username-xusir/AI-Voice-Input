@@ -162,7 +162,7 @@ PALETTES = {
 
 THEME = dict(PALETTES["teal"])
 THEME_NAME = "teal"
-VOXA_VERSION = "0.7.2"
+VOXA_VERSION = "0.7.5"
 
 MARGIN = 4
 PILL_MARGIN_X = 6
@@ -694,7 +694,7 @@ class SettingsPanel(QWidget):
     back_clicked = Signal()
     live_preview_toggled = Signal(bool)
     auto_paste_toggled = Signal(bool)
-    high_accuracy_toggled = Signal(bool)
+    model_tier_selected = Signal(str)
     language_selected = Signal(str)
     auto_punctuation_toggled = Signal(bool)
     auto_stop_toggled = Signal(bool)
@@ -702,6 +702,7 @@ class SettingsPanel(QWidget):
     device_selected = Signal(str)
     theme_selected = Signal(str)
     autostart_toggled = Signal(bool)
+    check_update_clicked = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -717,6 +718,7 @@ class SettingsPanel(QWidget):
         self._silence_timer.timeout.connect(self._emit_silence)
         self._gpu_available = False
         self._current_device = "CPU"
+        self._current_tier = "small"
         self._build()
         self.apply_theme()
 
@@ -759,23 +761,18 @@ class SettingsPanel(QWidget):
 
         root.addWidget(self._separator())
         root.addWidget(self._section("识别"))
-        self.high_switch = Switch(self)
-        self.high_switch.toggled.connect(self.high_accuracy_toggled.emit)
-        self.high_label = QLabel("高精度模型")
-        self.high_label.setObjectName("rowLabel")
-        self.high_hint = QLabel("OpenAI large-v3-turbo · 更慢")
-        self.high_hint.setObjectName("rowHint")
-        high_text = QVBoxLayout()
-        high_text.setSpacing(0)
-        high_text.addWidget(self.high_label)
-        high_text.addWidget(self.high_hint)
-        high_row = QWidget()
-        high_layout = QHBoxLayout(high_row)
-        high_layout.setContentsMargins(0, 0, 0, 0)
-        high_layout.addLayout(high_text)
-        high_layout.addStretch(1)
-        high_layout.addWidget(self.high_switch)
-        root.addWidget(high_row)
+        self.tier_group = QButtonGroup(self)
+        self.tier_group.setExclusive(True)
+        self.tier_buttons: dict[str, QPushButton] = {}
+        for key, text in (("tiny", "最小"), ("small", "均衡"), ("large", "最大")):
+            btn = self._segment(text, checkable=True)
+            btn.clicked.connect(lambda checked=False, k=key: self._choose_model_tier(k))
+            self.tier_group.addButton(btn)
+            self.tier_buttons[key] = btn
+        root.addWidget(self._seg_row("最终模型", self.tier_buttons, "最小", "均衡", "最大"))
+        self.tier_hint = QLabel("Tiny 最快 · Small 均衡 · Large Turbo 最准")
+        self.tier_hint.setObjectName("rowHint")
+        root.addWidget(self.tier_hint)
 
         self.device_group = QButtonGroup(self)
         self.device_group.setExclusive(True)
@@ -846,10 +843,17 @@ class SettingsPanel(QWidget):
         root.addStretch(1)
         footer = QHBoxLayout()
         footer.setSpacing(8)
+        self.update_btn = QPushButton("检查更新")
+        self.update_btn.setObjectName("link")
+        self.update_btn.setCursor(Qt.PointingHandCursor)
+        self.update_btn.setFocusPolicy(Qt.NoFocus)
+        self.update_btn.setFixedSize(58, 22)
+        self.update_btn.clicked.connect(self.check_update_clicked.emit)
+        footer.addWidget(self.update_btn)
+        footer.addStretch(1)
         self.footer_label = QLabel("设置自动保存")
         self.footer_label.setObjectName("footer")
         footer.addWidget(self.footer_label)
-        footer.addStretch(1)
         self.done_btn = QPushButton("完成")
         self.done_btn.setObjectName("done")
         self.done_btn.setCursor(Qt.PointingHandCursor)
@@ -917,6 +921,14 @@ class SettingsPanel(QWidget):
         return row
 
     # ---- state ----------------------------------------------------------
+    def _choose_model_tier(self, key: str) -> None:
+        if key == "large" and not self.tier_buttons["large"].isEnabled():
+            self.tier_buttons[self._current_tier].setChecked(True)
+            return
+        self._current_tier = key
+        self.tier_buttons[key].setChecked(True)
+        self.model_tier_selected.emit(key)
+
     def _choose_language(self, key: str) -> None:
         self.lang_buttons[key].setChecked(True)
         self.language_selected.emit(key)
@@ -943,20 +955,21 @@ class SettingsPanel(QWidget):
     def _emit_silence(self) -> None:
         self.silence_changed.emit(int(self.silence_slider.value()))
 
-    def set_high_available(self, available: bool) -> None:
-        self.high_switch.setEnabled(available)
-        self.high_hint.setText(
-            "OpenAI large-v3-turbo · 更慢" if available else "未安装 large 模型"
+    def set_model_available(self, large_available: bool) -> None:
+        large_btn = self.tier_buttons.get("large")
+        if large_btn is None:
+            return
+        large_btn.setEnabled(large_available)
+        large_btn.setToolTip(
+            "Whisper large-v3-turbo：最准，但最慢"
+            if large_available
+            else "安装时未选择 large-v3-turbo 模型；需要性能强劲的电脑"
         )
-        self.high_hint.setToolTip(
-            "更准，但更慢"
-            if available
-            else "安装时未选择 OpenAI large-v3-turbo 模型；需要性能强劲的电脑"
-        )
-        if not available:
-            self.high_switch.blockSignals(True)
-            self.high_switch.setChecked(False)
-            self.high_switch.blockSignals(False)
+        self.tier_buttons["tiny"].setToolTip("Whisper Tiny：最快，适合低性能电脑")
+        self.tier_buttons["small"].setToolTip("Whisper Small：速度与质量平衡")
+        if not large_available and self._current_tier == "large":
+            self._current_tier = "small"
+            self.tier_buttons["small"].setChecked(True)
 
     def set_gpu_available(self, available: bool) -> None:
         self._gpu_available = available
@@ -973,7 +986,7 @@ class SettingsPanel(QWidget):
         self,
         live_preview: bool,
         auto_paste: bool,
-        high_accuracy: bool,
+        model_tier: str,
         language: str,
         auto_punctuation: bool = True,
         theme: str = "teal",
@@ -985,7 +998,6 @@ class SettingsPanel(QWidget):
         for switch, value in (
             (self.live_switch, live_preview),
             (self.auto_switch, auto_paste),
-            (self.high_switch, high_accuracy and self.high_switch.isEnabled()),
             (self.auto_punct_switch, auto_punctuation),
             (self.auto_stop_switch, auto_stop),
             (self.autostart_switch, autostart),
@@ -998,6 +1010,13 @@ class SettingsPanel(QWidget):
         self.silence_slider.blockSignals(False)
         self.silence_value.setText(f"{self.silence_slider.value() / 1000:.1f} 秒")
         self.silence_slider.setEnabled(auto_stop)
+
+        tier = model_tier if model_tier in self.tier_buttons else "small"
+        if tier == "large" and not self.tier_buttons["large"].isEnabled():
+            tier = "small"
+        self._current_tier = tier
+        for k, btn in self.tier_buttons.items():
+            btn.setChecked(k == tier)
 
         key = language if language in self.lang_buttons else "zh"
         for k, btn in self.lang_buttons.items():
@@ -1083,6 +1102,17 @@ class SettingsPanel(QWidget):
                 color: {THEME["footer"]};
                 background: transparent;
             }}
+            QPushButton#link {{
+                color: {THEME["text"]};
+                background: transparent;
+                border: none;
+                font-family: "Microsoft YaHei UI";
+                font-size: 7.4pt;
+                padding: 0;
+            }}
+            QPushButton#link:hover {{
+                color: {THEME["accent"]};
+            }}
             QPushButton#done {{
                 color: {THEME["segment_checked_text"]};
                 background: {THEME["segment_checked"]};
@@ -1127,7 +1157,7 @@ class SettingsPanel(QWidget):
             self.auto_punct_switch,
             self.live_switch,
             self.auto_switch,
-            self.high_switch,
+            *self.tier_buttons.values(),
             self.auto_stop_switch,
             self.autostart_switch,
             self.silence_slider,
@@ -1225,6 +1255,7 @@ class TrayIcon(QSystemTrayIcon):
         on_open_logs,
         on_show=None,
         on_settings=None,
+        on_check_update=None,
         on_toggle_hotkey=None,
         on_toggle_autostart=None,
         autostart_enabled: bool = False,
@@ -1246,6 +1277,9 @@ class TrayIcon(QSystemTrayIcon):
         if on_settings:
             settings_action = menu.addAction("详细设置")
             settings_action.triggered.connect(on_settings)
+        if on_check_update:
+            update_action = menu.addAction("检查更新")
+            update_action.triggered.connect(on_check_update)
         self.autostart_action = menu.addAction("开机自启动")
         self.autostart_action.setCheckable(True)
         self.autostart_action.setChecked(autostart_enabled)
@@ -1494,6 +1528,17 @@ class QuickSettingsPanel(QWidget):
                 color: {THEME["segment_checked_text"]};
                 background: {THEME["segment_checked"]};
                 border: 1px solid {THEME["segment_checked"]};
+            }}
+            QPushButton#link {{
+                color: {THEME["text"]};
+                background: transparent;
+                border: none;
+                font-family: "Microsoft YaHei UI";
+                font-size: 7.4pt;
+                padding: 0;
+            }}
+            QPushButton#link:hover {{
+                color: {THEME["accent"]};
             }}
             QPushButton#done {{
                 color: {THEME["segment_checked_text"]};

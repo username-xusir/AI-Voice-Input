@@ -108,6 +108,7 @@ class ASREngine:
         compute_type: str = "int8",
         preview_model_dir: str | None = None,
         fast_model_dir: str | None = None,
+        model_tier: str = "small",
         use_high_accuracy: bool = True,
         ov_model_dir: str | None = None,
         ov_preview_model_dir: str | None = None,
@@ -118,7 +119,10 @@ class ASREngine:
         self.model_dir = model_dir
         self.preview_model_dir = preview_model_dir
         self.fast_model_dir = fast_model_dir
-        self.use_high_accuracy = use_high_accuracy
+        if model_tier not in ("tiny", "small", "large"):
+            model_tier = "large" if use_high_accuracy else "small"
+        self.model_tier = model_tier
+        self.use_high_accuracy = self.model_tier == "large"
         self.language = language
         self.num_threads = max(1, int(num_threads))
         self.compute_type = compute_type
@@ -185,7 +189,7 @@ class ASREngine:
         self.load_seconds = 0.0
 
     def _load_openvino(self) -> None:
-        if self.use_high_accuracy and self.ov_model_dir:
+        if self.model_tier == "large" and self.ov_model_dir:
             self._load_ov_large()
         specs = (
             ("快速最终", self.ov_fast_model_dir, "ov_small"),
@@ -206,7 +210,7 @@ class ASREngine:
         try:
             self.ov_large = OVPipeline(self.ov_model_dir, self.ov_device)
         except Exception:
-            log.exception("OpenVINO 高精度模型加载失败，回退 faster-whisper")
+            log.exception("OpenVINO 最大模型加载失败，回退 faster-whisper")
             self.ov_large = None
 
     def _load_whisper_final(self) -> None:
@@ -284,20 +288,28 @@ class ASREngine:
         duration = len(audio) / 16000
 
         if (
-            self.use_high_accuracy
+            self.model_tier == "large"
             and self.ov_large is None
             and self.use_openvino
             and ov_available()
         ):
             self._load_ov_large()
-        ov_pipe = self.ov_large if self.use_high_accuracy else self.ov_small
-        if ov_pipe is None and self.use_high_accuracy:
-            ov_pipe = self.ov_small
+        if self.model_tier == "large":
+            ov_pipe = self.ov_large or self.ov_small or self.ov_base
+        elif self.model_tier == "tiny":
+            ov_pipe = self.ov_base or self.ov_small
+        else:
+            ov_pipe = self.ov_small or self.ov_base
         if ov_pipe is not None:
             if not has_speech(audio):
                 log.info("最终识别：VAD 未检测到语音")
                 return ""
-            label = "ov-large" if ov_pipe is self.ov_large else "ov-small"
+            if ov_pipe is self.ov_large:
+                label = "ov-large"
+            elif ov_pipe is self.ov_base:
+                label = "ov-tiny"
+            else:
+                label = "ov-small"
             try:
                 with self._lock:
                     text, elapsed = ov_pipe.transcribe(audio, language, prompt)
@@ -316,10 +328,12 @@ class ASREngine:
                 return text
 
         # Fallback: faster-whisper.
-        if self.use_high_accuracy:
+        if self.model_tier == "large":
             if self.whisper is None:
                 self._load_whisper_final()
             model = self.whisper or self.fast_whisper or self.preview_whisper
+        elif self.model_tier == "tiny":
+            model = self.preview_whisper or self.fast_whisper or self.whisper
         else:
             model = self.fast_whisper or self.preview_whisper or self.whisper
         if model is None:
@@ -347,9 +361,15 @@ class ASREngine:
             elapsed = time.perf_counter() - t0
 
         text = _finish_text(text, self.language, self.auto_punctuation)
+        if model is self.whisper:
+            label = "high"
+        elif model is self.preview_whisper:
+            label = "tiny"
+        else:
+            label = "fast"
         log.info(
             "Whisper 最终完成 (%s): %.2fs 音频 / %.2fs 推理 (RTF %.2f) | %r",
-            "high" if model is self.whisper else "fast",
+            label,
             duration,
             elapsed,
             elapsed / duration if duration else 0.0,

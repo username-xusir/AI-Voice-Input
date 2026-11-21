@@ -48,7 +48,7 @@ def main() -> None:
         settings.set_values(
             True,
             True,
-            False,
+            "small",
             "zh",
             auto_punctuation=True,
             theme=theme,
