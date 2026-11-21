@@ -38,7 +38,7 @@ Voxa 是 Windows 10/11 的本地语音输入浮窗。它接管 **Win+H**：按�
 
 ## 安装包（推荐）
 
-从 [GitHub Releases](https://github.com/username-xusir/AI-Voice-Input/releases) 下载 `Voxa-Setup-0.7.5.exe`。
+从 [GitHub Releases](https://github.com/username-xusir/AI-Voice-Input/releases) 下载 `Voxa-Setup-0.7.6.exe`。
 
 SHA256：`d328684c94f732ab871fdab622c1ff5eb73dea173261441b8210ccc6a1c34f71`
 
@@ -51,7 +51,7 @@ SHA256：`d328684c94f732ab871fdab622c1ff5eb73dea173261441b8210ccc6a1c34f71`
 - 默认开机自启动，后台静默运行，只留托盘。
 - 卸载：Windows 设置 → 应用 → **Voxa**，或开始菜单“卸载 Voxa”。
 
-安装包不放进 git：在 GitHub Releases 上传 `Voxa-Setup-0.7.5.exe`、`SHA256SUMS.txt` 和 `RELEASE_NOTES.md`。
+安装包不放进 git：在 GitHub Releases 上传 `Voxa-Setup-0.7.6.exe`、`SHA256SUMS.txt` 和 `RELEASE_NOTES.md`。
 
 ## 源码安装 / 启动
 
@@ -81,7 +81,7 @@ setup.bat
 | 主题 | 青色（原配色）/ 浅色（白灰）/ 深色（炭黑） |
 | 开机自启动 | 写入 HKCU Run，无管理员权限 |
 
-设置会自动保存到 `config.json`，不需要“保存”按钮。设置页顶部应显示 `详细设置 · 本地语音输入 · v0.7.5`；如果看到 166×244 的旧小卡片，说明打开的是旧版 VoiceIn。
+设置会自动保存到 `config.json`，不需要“保存”按钮。设置页顶部应显示 `详细设置 · 本地语音输入 · v0.7.6`；如果看到 166×244 的旧小卡片，说明打开的是旧版 VoiceIn。
 
 ## 常用配置字段
 

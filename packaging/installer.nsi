@@ -6,11 +6,19 @@
 
 !define APP_NAME "Voxa"
 !define APP_EXE "Voxa.exe"
-!define APP_VERSION "0.7.5"
+!define APP_VERSION "0.7.6"
 !define APP_PUBLISHER "Voxa"
 !define APP_ID "Voxa"
 !define SEC_CORE_ID 0
 !define SEC_LARGE_ID 1
+!define INSTALL_LOG "$TEMP\Voxa-install.log"
+
+!macro LOG_STEP text
+  FileOpen $9 "${INSTALL_LOG}" a
+  FileSeek $9 0 END
+  FileWrite $9 "${text}$\r$\n"
+  FileClose $9
+!macroend
 
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "..\release\Voxa-Setup-${APP_VERSION}.exe"
@@ -23,7 +31,7 @@ BrandingText "Voxa · 本地语音输入"
 Icon "app.ico"
 UninstallIcon "app.ico"
 
-VIProductVersion "0.7.5.0"
+VIProductVersion "0.7.6.0"
 VIAddVersionKey "ProductName" "${APP_NAME}"
 VIAddVersionKey "CompanyName" "${APP_PUBLISHER}"
 VIAddVersionKey "FileDescription" "Voxa 本地语音输入安装程序"
@@ -53,6 +61,12 @@ VIAddVersionKey "LegalCopyright" "MIT License"
 !insertmacro MUI_LANGUAGE "English"
 
 Function .onInit
+  FileOpen $9 "${INSTALL_LOG}" w
+  FileWrite $9 "Voxa installer ${APP_VERSION} start$\r$\n"
+  FileWrite $9 "EXEPATH=$EXEPATH$\r$\n"
+  FileWrite $9 "INSTDIR=$INSTDIR$\r$\n"
+  FileClose $9
+
   ; OpenAI large model is optional and unchecked by default.
   SectionSetFlags ${SEC_LARGE_ID} ${SF_SELECTED}
 FunctionEnd
@@ -61,20 +75,26 @@ Section "Voxa 主程序与基础模型（必需）" SEC_CORE
   SectionIn RO
 
   ; Stop both the new app and a pre-rename VoiceIn build before replacing
-  ; files. Otherwise the old build keeps the Win+H hook and the new build
-  ; cannot take over.
-  nsExec::ExecToLog 'taskkill /IM ${APP_EXE} /F'
-  nsExec::ExecToLog 'taskkill /IM VoiceIn.exe /F'
-
-  ; 0.7.5 replaces the old base preview model with Tiny.
-  RMDir /r "$INSTDIR\models\whisper-base-int4-ov"
+  ; files. Exclude this installer's own PID: if the setup file was renamed
+  ; to Voxa.exe, a plain "taskkill /IM Voxa.exe" would kill the installer
+  ; itself right after the progress bar appears.
+  System::Call 'kernel32::GetCurrentProcessId() i .r0'
+  !insertmacro LOG_STEP "core: start pid=$0"
+  DetailPrint "正在停止旧版 Voxa…"
+  nsExec::ExecToLog 'taskkill /F /IM ${APP_EXE} /FI "PID ne $0"'
+  !insertmacro LOG_STEP "core: after taskkill Voxa"
+  DetailPrint "正在停止旧版 VoiceIn…"
+  nsExec::ExecToLog 'taskkill /F /IM VoiceIn.exe /FI "PID ne $0"'
+  !insertmacro LOG_STEP "core: after taskkill VoiceIn"
 
   ; Upgrade from VoiceIn: run its per-user uninstaller, then clean leftovers.
   IfFileExists "$LOCALAPPDATA\Programs\VoiceIn\Uninstall.exe" 0 legacy_done
     DetailPrint "正在移除旧版 VoiceIn…"
+    !insertmacro LOG_STEP "core: run legacy VoiceIn uninstaller"
     nsExec::ExecToLog '"$LOCALAPPDATA\Programs\VoiceIn\Uninstall.exe" /S'
     Sleep 1200
   legacy_done:
+  !insertmacro LOG_STEP "core: legacy cleanup"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "VoiceIn"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\VoiceIn"
   DeleteRegKey HKCU "Software\VoiceIn"
@@ -82,13 +102,25 @@ Section "Voxa 主程序与基础模型（必需）" SEC_CORE
   RMDir /r "$SMPROGRAMS\声入"
 
   SetOutPath "$INSTDIR"
+  DetailPrint "正在解压程序文件…"
+  !insertmacro LOG_STEP "core: before File /r"
   File /r "..\dist\Voxa\*.*"
+  !insertmacro LOG_STEP "core: after File /r"
   File "..\README.md"
   File "..\LICENSE"
   File "..\NOTICE.md"
 
+  ; Remove the old base preview model only after the new files are in place.
+  ; Deleting it before extraction made an early installer crash much harder
+  ; to recover from and is unnecessary during the copy.
+  DetailPrint "正在清理旧版 base 预览模型…"
+  !insertmacro LOG_STEP "core: before remove old base"
+  RMDir /r "$INSTDIR\models\whisper-base-int4-ov"
+  !insertmacro LOG_STEP "core: after remove old base"
+
   CreateDirectory "$LOCALAPPDATA\Voxa"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
+  !insertmacro LOG_STEP "core: wrote uninstaller"
 
   CreateDirectory "$SMPROGRAMS\Voxa"
   CreateShortcut "$SMPROGRAMS\Voxa\Voxa.lnk" "$INSTDIR\${APP_EXE}"
@@ -108,11 +140,14 @@ Section "Voxa 主程序与基础模型（必需）" SEC_CORE
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "NoModify" 1
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "NoRepair" 1
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "EstimatedSize" 1400000
+  !insertmacro LOG_STEP "core: done"
 SectionEnd
 
 Section "OpenAI Whisper large-v3-turbo 最大模型（默认包含）" SEC_LARGE
+  !insertmacro LOG_STEP "large: before File /r"
   SetOutPath "$INSTDIR\models\whisper-large-v3-turbo-int4-ov"
   File /r "..\dist\models-large\whisper-large-v3-turbo-int4-ov\*.*"
+  !insertmacro LOG_STEP "large: done"
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
@@ -121,7 +156,9 @@ SectionEnd
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 Section "Uninstall"
-  nsExec::ExecToLog 'taskkill /IM ${APP_EXE} /F'
+  System::Call 'kernel32::GetCurrentProcessId() i .r0'
+  !insertmacro LOG_STEP "uninstall: start pid=$0"
+  nsExec::ExecToLog 'taskkill /F /IM ${APP_EXE} /FI "PID ne $0"'
 
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_ID}"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"

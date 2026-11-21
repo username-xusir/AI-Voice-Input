@@ -1,4 +1,4 @@
-# 构建与发布 — Voxa 0.7.5
+# 构建与发布 — Voxa 0.7.6
 
 ## 依赖
 
@@ -45,7 +45,7 @@ dist\models-large\whisper-large-v3-turbo-int4-ov\
 tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 ```
 
-产物：`release\Voxa-Setup-0.7.5.exe`。
+产物：`release\Voxa-Setup-0.7.6.exe`。
 
 安装包特性：
 
@@ -61,7 +61,7 @@ tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 1. 在临时目录静默安装：
 
    ```bat
-   release\Voxa-Setup-0.7.5.exe /S /D=C:\temp\VoxaTest
+   release\Voxa-Setup-0.7.6.exe /S /D=C:\temp\VoxaTest
    ```
 
 2. 启动 `C:\temp\VoxaTest\Voxa.exe`，等托盘就绪。
@@ -77,7 +77,7 @@ tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 
 上传：
 
-- `release\Voxa-Setup-0.7.5.exe`
+- `release\Voxa-Setup-0.7.6.exe`
 - `release\SHA256SUMS.txt`
 - `release\RELEASE_NOTES.md`
 
@@ -86,6 +86,6 @@ tools\nsis\nsis-3.11\Bin\makensis.exe packaging\installer.nsi
 - 版本、Windows 10/11、CPU 要求。
 - 安装包默认包含 Tiny + Small 基础模型与 large-v3-turbo 最大模型；large 可取消。
 - Win+H 接管说明。
-- 0.7.5 三档多语言模型（Tiny / Small / Large Turbo），详细设置可选最终模型。
+- 0.7.6 三档多语言模型（Tiny / Small / Large Turbo），详细设置可选最终模型。
 - 0.7.4 浮窗常驻结果、快速/详细设置分离、桌面入口不弹语音浮窗。
 - 已知限制：高精度慢、实时输入依赖光标、Iris Xe GPU 更慢。
